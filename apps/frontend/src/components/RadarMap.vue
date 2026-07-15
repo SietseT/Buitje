@@ -58,6 +58,22 @@ function coordinatesFromBounds(bounds: RadarBounds): [
   ];
 }
 
+// The radar overlay only covers the KNMI composite grid (NL + a sliver of
+// BE/DE) - unrestricted, a user can pan/zoom the basemap out to see the
+// whole world or scroll over to Spain, where there's no radar data and the
+// map stops making sense. Pad the radar's own bounds a bit so panning stops
+// just beyond the data edge rather than exactly at it.
+function padBounds(bounds: RadarBounds, factor: number): maplibregl.LngLatBoundsLike {
+  const lngPad = (bounds.east - bounds.west) * factor;
+  const latPad = (bounds.north - bounds.south) * factor;
+  return [
+    bounds.west - lngPad,
+    bounds.south - latPad,
+    bounds.east + lngPad,
+    bounds.north + latPad,
+  ];
+}
+
 // updateImage() loads its image asynchronously. Scrubbing the timeline
 // fast fires many overlapping updateOverlay() calls, and network/decode
 // responses can resolve out of order - whichever finishes last (in wall
@@ -144,6 +160,18 @@ onUnmounted(() => {
 watch([() => props.frame, () => props.bounds], () => {
   if (map.value?.loaded()) updateOverlay();
 });
+
+// props.bounds is still null when the map is constructed in onMounted (the
+// bounds fetch hasn't resolved yet), so this can't be passed as a
+// constructor option - apply it as soon as it becomes available instead.
+watch(
+  () => props.bounds,
+  (bounds) => {
+    if (map.value && bounds) {
+      map.value.setMaxBounds(padBounds(bounds, 0.175));
+    }
+  },
+);
 </script>
 
 <template>
