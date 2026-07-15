@@ -3,11 +3,25 @@ import { onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
+import type { Marker } from "@/composables/useMarkers";
+import { useI18n } from "@/i18n/messages";
 
 const props = defineProps<{
   frame: RadarFrame | undefined;
   bounds: RadarBounds | null;
+  markers: Marker[];
+  placingMarker: boolean;
 }>();
+
+const emit = defineEmits<{
+  placeMarker: [lng: number, lat: number];
+  renameMarker: [id: string, label: string];
+  deleteMarker: [id: string];
+  cancelPlacing: [];
+  geolocateError: [];
+}>();
+
+const { t } = useI18n();
 
 const mapContainer = ref<HTMLDivElement | null>(null);
 const map = shallowRef<maplibregl.Map | null>(null);
@@ -121,6 +135,159 @@ function updateOverlay() {
   img.src = frame.url;
 }
 
+// MapLibre's default teardrop pin looks dated next to the rest of the
+// app's flat, lucide-icon UI - build the marker element from the same
+// "map-pin" glyph used on the panel button instead, filled in a color
+// distinct from both the radar palette and the GeolocateControl's blue
+// dot. Popup content is built with plain DOM calls, matching this file's
+// existing all-imperative style (no child Vue components get mounted into
+// the map).
+const MARKER_COLOR = "#dc2626";
+
+// Path data from @lucide/vue's "map-pin" icon (24x24 viewBox), kept as a
+// literal so this stays a plain DOM element rather than mounting a Vue
+// component into the map.
+const MARKER_PIN_SVG = `
+  <svg width="30" height="30" viewBox="0 0 24 24" fill="${MARKER_COLOR}" stroke="white" stroke-width="1.25" stroke-linejoin="round" style="filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.4))">
+    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+    <circle cx="12" cy="10" r="3" fill="white" stroke="none" />
+  </svg>
+`;
+
+function createMarkerElement(): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "cursor-pointer";
+  el.innerHTML = MARKER_PIN_SVG;
+  return el;
+}
+
+interface MarkerInstance {
+  marker: maplibregl.Marker;
+  input: HTMLInputElement;
+}
+
+const markerInstances = new Map<string, MarkerInstance>();
+
+function createPopupContent(id: string, label: string): { element: HTMLElement; input: HTMLInputElement } {
+  const container = document.createElement("div");
+  container.className = "flex items-center gap-1.5";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = label;
+  input.placeholder = t("markers.namePlaceholder");
+  input.className =
+    "min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none focus:border-ring";
+  input.addEventListener("change", () => {
+    const value = input.value.trim();
+    if (value) emit("renameMarker", id, value);
+  });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") input.blur();
+  });
+
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.textContent = t("markers.delete");
+  deleteButton.className =
+    "shrink-0 rounded-md px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10";
+  deleteButton.addEventListener("click", () => emit("deleteMarker", id));
+
+  container.append(input, deleteButton);
+  return { element: container, input };
+}
+
+function syncMarkers() {
+  const m = map.value;
+  if (!m) return;
+
+  const seen = new Set<string>();
+  for (const data of props.markers) {
+    seen.add(data.id);
+    const existing = markerInstances.get(data.id);
+    if (existing) {
+      existing.marker.setLngLat([data.lng, data.lat]);
+      if (document.activeElement !== existing.input) existing.input.value = data.label;
+      continue;
+    }
+
+    const { element, input } = createPopupContent(data.id, data.label);
+    const popup = new maplibregl.Popup({
+      offset: 22,
+      className: "buitje-marker-popup",
+      closeButton: false,
+    }).setDOMContent(element);
+    const marker = new maplibregl.Marker({ element: createMarkerElement(), anchor: "bottom" })
+      .setLngLat([data.lng, data.lat])
+      .setPopup(popup)
+      .addTo(m);
+    markerInstances.set(data.id, { marker, input });
+  }
+
+  for (const [id, { marker }] of markerInstances) {
+    if (!seen.has(id)) {
+      marker.remove();
+      markerInstances.delete(id);
+    }
+  }
+}
+
+// Exposed so the parent can open a freshly-placed marker's popup right away
+// (letting the user rename it immediately) and fly to a marker picked from
+// the saved-markers list, without RadarMap needing to know about either flow.
+function openMarkerPopup(id: string) {
+  const entry = markerInstances.get(id);
+  if (!entry) return;
+  entry.marker.togglePopup();
+  requestAnimationFrame(() => {
+    entry.input.focus();
+    entry.input.select();
+  });
+}
+
+function flyTo(lng: number, lat: number) {
+  const m = map.value;
+  if (!m) return;
+  m.flyTo({ center: [lng, lat], zoom: Math.max(m.getZoom(), 9) });
+}
+
+defineExpose({ openMarkerPopup, flyTo });
+
+// Click-to-place: arming placement mode swaps the cursor to a crosshair and
+// arms a single map click to report the clicked coordinates back up - the
+// parent owns whether we're "placing" (and creates the actual marker), this
+// component only ever reports where the user clicked.
+let placementClickHandler: ((e: maplibregl.MapMouseEvent) => void) | null = null;
+
+function handlePlacementEscape(e: KeyboardEvent) {
+  if (e.key === "Escape") emit("cancelPlacing");
+}
+
+watch(
+  () => props.placingMarker,
+  (placing) => {
+    const m = map.value;
+    if (!m) return;
+
+    if (placementClickHandler) {
+      m.off("click", placementClickHandler);
+      placementClickHandler = null;
+    }
+    window.removeEventListener("keydown", handlePlacementEscape);
+
+    if (placing) {
+      m.getCanvas().style.cursor = "crosshair";
+      placementClickHandler = (e) => emit("placeMarker", e.lngLat.lng, e.lngLat.lat);
+      m.on("click", placementClickHandler);
+      window.addEventListener("keydown", handlePlacementEscape);
+    } else {
+      m.getCanvas().style.cursor = "";
+    }
+  },
+);
+
+watch(() => props.markers, syncMarkers, { deep: true });
+
 onMounted(() => {
   if (!mapContainer.value) return;
   map.value = new maplibregl.Map({
@@ -135,10 +302,28 @@ onMounted(() => {
     attributionControl: false,
   });
   map.value.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+  // Geolocation is opt-in and permission can be denied - GeolocateControl
+  // already handles the browser permission prompt and draws the pulsing
+  // location dot itself; we only need to surface denial/failure so the app
+  // can point the user at the manual-marker fallback instead.
+  const geolocateControl = new maplibregl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: false },
+    trackUserLocation: true,
+    showUserLocation: true,
+    // Default fitBoundsOptions zooms in to street level - all we want here
+    // is to reveal roughly where the user is, not replace the radar
+    // overview with a close-up.
+    fitBoundsOptions: { maxZoom: 9 },
+  });
+  geolocateControl.on("error", () => emit("geolocateError"));
+  map.value.addControl(geolocateControl, "top-right");
+
   map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
   map.value.on("load", () => {
     updateOverlay();
     applyLocalLabelLanguage();
+    syncMarkers();
   });
 
   // The container's size isn't always settled at construction time (e.g.
@@ -153,6 +338,7 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+  window.removeEventListener("keydown", handlePlacementEscape);
   map.value?.remove();
   map.value = null;
 });
