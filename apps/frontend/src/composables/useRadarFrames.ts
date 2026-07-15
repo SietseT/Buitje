@@ -56,12 +56,16 @@ export function useRadarFrames() {
     bounds.value = await res.json();
   }
 
-  function scheduleNextFrame() {
+  // The extra dwell only applies when playback organically arrives at the
+  // last frame on its own. A manual play/pause (or speed change) always
+  // resumes at normal speed, even if parked on the last frame - it
+  // shouldn't re-apply a pause the user just took control past.
+  function scheduleNextFrame(allowEndPause: boolean) {
     const atLastFrame = selectedIndex.value === frames.value.length - 1;
-    const delay = atLastFrame ? PAUSE_AT_END_MS : BASE_PLAYBACK_INTERVAL_MS / speed.value;
+    const delay = atLastFrame && allowEndPause ? PAUSE_AT_END_MS : BASE_PLAYBACK_INTERVAL_MS / speed.value;
     playbackTimer = setTimeout(() => {
       selectedIndex.value = (selectedIndex.value + 1) % frames.value.length;
-      scheduleNextFrame();
+      scheduleNextFrame(true);
     }, delay);
   }
 
@@ -69,7 +73,7 @@ export function useRadarFrames() {
     if (frames.value.length <= 1) return;
     playing.value = true;
     clearTimeout(playbackTimer);
-    scheduleNextFrame();
+    scheduleNextFrame(false);
   }
 
   function pause() {
