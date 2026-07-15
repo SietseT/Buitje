@@ -48,7 +48,7 @@ const sliderValue = computed({
 
 <template>
   <div
-    class="flex items-center gap-3 rounded-xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur dark:bg-neutral-900/90"
+    class="flex w-full max-w-md items-center gap-3 rounded-xl bg-white/90 px-4 py-3 shadow-lg backdrop-blur sm:w-auto dark:bg-neutral-900/90"
   >
     <Button
       size="icon"
@@ -62,7 +62,7 @@ const sliderValue = computed({
     </Button>
 
     <Slider
-      class="w-48 sm:w-72"
+      class="min-w-0 flex-1 sm:w-72"
       :model-value="sliderValue"
       :min="0"
       :max="Math.max(frames.length - 1, 0)"

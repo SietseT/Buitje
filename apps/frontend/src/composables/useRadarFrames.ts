@@ -16,7 +16,7 @@ const POLL_INTERVAL_MS = 60_000;
 const BASE_PLAYBACK_INTERVAL_MS = 600;
 const PAUSE_AT_END_MS = 2000;
 
-export const PLAYBACK_SPEEDS = [1, 2, 3] as const;
+export const PLAYBACK_SPEEDS = [0.5, 1, 2] as const;
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
 
 export function useRadarFrames() {
@@ -98,6 +98,7 @@ export function useRadarFrames() {
 
   onMounted(async () => {
     await Promise.all([refreshFrames(), refreshBounds()]);
+    play();
     pollTimer = setInterval(refreshFrames, POLL_INTERVAL_MS);
   });
 

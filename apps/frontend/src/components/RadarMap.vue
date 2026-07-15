@@ -89,9 +89,14 @@ onMounted(() => {
     style,
     center: [5.3, 52.15],
     zoom: 6.7,
-    attributionControl: { compact: true },
+    // Default bottom-right attribution wraps to 2 lines on narrow viewports,
+    // spanning nearly the full width and colliding with the bottom
+    // timeline/legend toolbar. Move it to top-right instead, alongside the
+    // zoom control, well clear of every other overlay.
+    attributionControl: false,
   });
   map.value.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
   map.value.on("load", () => {
     updateOverlay();
     applyLocalLabelLanguage();

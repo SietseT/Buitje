@@ -22,11 +22,13 @@ const {
   <div class="relative h-full w-full">
     <RadarMap :frame="currentFrame" :bounds="bounds" />
 
-    <div class="absolute top-4 left-4">
+    <div class="absolute top-4 left-4 z-10">
       <LanguageSelector />
     </div>
 
-    <div class="absolute inset-x-0 bottom-6 flex justify-center gap-2 px-4">
+    <div
+      class="absolute inset-x-0 bottom-6 z-10 flex flex-col items-center gap-2 px-4 sm:flex-row sm:items-stretch sm:justify-center"
+    >
       <Timeline
         :frames="frames"
         :selected-index="selectedIndex"
