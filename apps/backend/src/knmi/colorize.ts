@@ -15,7 +15,7 @@ interface ColorStop {
 // ramping in over the first few stops so light drizzle fades in softly.
 const STOPS: ColorStop[] = [
   { dbz: 0, r: 100, g: 180, b: 255, a: 0 },
-  { dbz: 5, r: 100, g: 180, b: 255, a: 140 },
+  { dbz: 7, r: 100, g: 180, b: 255, a: 0 },
   { dbz: 15, r: 60, g: 140, b: 245, a: 200 },
   { dbz: 25, r: 60, g: 200, b: 90, a: 220 },
   { dbz: 35, r: 240, g: 220, b: 40, a: 235 },
