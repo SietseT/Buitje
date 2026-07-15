@@ -2,6 +2,7 @@
 import RadarMap from "@/components/RadarMap.vue";
 import Timeline from "@/components/Timeline.vue";
 import Legend from "@/components/Legend.vue";
+import LanguageSelector from "@/components/LanguageSelector.vue";
 import { useRadarFrames } from "@/composables/useRadarFrames";
 
 const {
@@ -22,10 +23,10 @@ const {
     <RadarMap :frame="currentFrame" :bounds="bounds" />
 
     <div class="absolute top-4 left-4">
-      <Legend />
+      <LanguageSelector />
     </div>
 
-    <div class="absolute inset-x-0 bottom-6 flex justify-center px-4">
+    <div class="absolute inset-x-0 bottom-6 flex items-center justify-center gap-2 px-4">
       <Timeline
         :frames="frames"
         :selected-index="selectedIndex"
@@ -35,6 +36,7 @@ const {
         @toggle-play="togglePlay"
         @set-speed="setSpeed"
       />
+      <Legend />
     </div>
   </div>
 </template>

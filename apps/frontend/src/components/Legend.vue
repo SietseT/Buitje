@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { useI18n } from "@/i18n/messages";
+
+const { t } = useI18n();
+
 // Mirrors the color ramp in apps/backend/src/knmi/colorize.ts (STOPS).
 // Keep these in sync if that ramp changes.
 const STOPS = [
@@ -23,11 +27,11 @@ const gradient = `linear-gradient(to right, ${STOPS.map(
   <div
     class="w-40 rounded-xl bg-white/90 px-3 py-2.5 shadow-lg backdrop-blur dark:bg-neutral-900/90"
   >
-    <p class="mb-1.5 text-xs font-medium text-muted-foreground">Rain intensity</p>
+    <p class="mb-1.5 text-xs font-medium text-muted-foreground">{{ t("legend.title") }}</p>
     <div class="h-2.5 w-full rounded-full" :style="{ background: gradient }" />
     <div class="mt-1 flex justify-between text-[10px] text-muted-foreground">
-      <span>Light</span>
-      <span>Heavy</span>
+      <span>{{ t("legend.light") }}</span>
+      <span>{{ t("legend.heavy") }}</span>
     </div>
   </div>
 </template>

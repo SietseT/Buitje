@@ -6,11 +6,17 @@
     "node": ">=20"
   },
   "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"pnpm:dev:backend\" \"pnpm:dev:frontend\"",
     "dev:backend": "pnpm --filter backend dev",
     "dev:frontend": "pnpm --filter frontend dev",
     "build": "pnpm --filter frontend build && pnpm --filter backend build"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3"
   }
 }

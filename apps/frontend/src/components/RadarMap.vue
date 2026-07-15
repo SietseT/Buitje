@@ -15,6 +15,28 @@ const map = shallowRef<maplibregl.Map | null>(null);
 const RADAR_SOURCE_ID = "radar-frame";
 const RADAR_LAYER_ID = "radar-frame-layer";
 
+// OpenFreeMap's Liberty style prefers the English name ("name_en") over the
+// local OSM "name" for every label layer, whenever one exists. We always
+// want local (Dutch) place names on the map, so rewrite that expression on
+// every symbol layer's text-field rather than hardcoding layer ids.
+function withLocalNames(expr: unknown): unknown {
+  if (Array.isArray(expr)) {
+    if (expr[0] === "get" && expr[1] === "name_en") return ["get", "name"];
+    return expr.map(withLocalNames);
+  }
+  return expr;
+}
+
+function applyLocalLabelLanguage() {
+  const m = map.value;
+  if (!m) return;
+  for (const layer of m.getStyle().layers) {
+    if (layer.type === "symbol" && layer.layout && "text-field" in layer.layout) {
+      m.setLayoutProperty(layer.id, "text-field", withLocalNames(layer.layout["text-field"]));
+    }
+  }
+}
+
 // OpenFreeMap "Liberty" style: a decluttered vector basemap that stays out
 // of the way of the radar overlay, unlike raw OSM Mapnik tiles. Genuinely
 // free, no API key/account/rate limit (unlike CARTO's basemap CDN, which
@@ -70,7 +92,10 @@ onMounted(() => {
     attributionControl: { compact: true },
   });
   map.value.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-  map.value.on("load", updateOverlay);
+  map.value.on("load", () => {
+    updateOverlay();
+    applyLocalLabelLanguage();
+  });
 });
 
 onUnmounted(() => {
