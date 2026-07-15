@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const mapContainer = ref<HTMLDivElement | null>(null);
 const map = shallowRef<maplibregl.Map | null>(null);
+let resizeObserver: ResizeObserver | null = null;
 
 const RADAR_SOURCE_ID = "radar-frame";
 const RADAR_LAYER_ID = "radar-frame-layer";
@@ -101,9 +102,19 @@ onMounted(() => {
     updateOverlay();
     applyLocalLabelLanguage();
   });
+
+  // The container's size isn't always settled at construction time (e.g.
+  // web fonts/Tailwind CSS still loading, mobile browser chrome collapsing
+  // after first paint), which can leave the map stuck at a stale, wrong
+  // canvas size. Keep it in sync with the container's actual size instead
+  // of relying on a single measurement at mount.
+  resizeObserver = new ResizeObserver(() => map.value?.resize());
+  resizeObserver.observe(mapContainer.value);
 });
 
 onUnmounted(() => {
+  resizeObserver?.disconnect();
+  resizeObserver = null;
   map.value?.remove();
   map.value = null;
 });
