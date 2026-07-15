@@ -26,7 +26,7 @@ const {
       <LanguageSelector />
     </div>
 
-    <div class="absolute inset-x-0 bottom-6 flex items-center justify-center gap-2 px-4">
+    <div class="absolute inset-x-0 bottom-6 flex justify-center gap-2 px-4">
       <Timeline
         :frames="frames"
         :selected-index="selectedIndex"
