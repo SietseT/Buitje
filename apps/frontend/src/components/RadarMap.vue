@@ -1,0 +1,88 @@
+<script setup lang="ts">
+import { onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
+
+const props = defineProps<{
+  frame: RadarFrame | undefined;
+  bounds: RadarBounds | null;
+}>();
+
+const mapContainer = ref<HTMLDivElement | null>(null);
+const map = shallowRef<maplibregl.Map | null>(null);
+
+const RADAR_SOURCE_ID = "radar-frame";
+const RADAR_LAYER_ID = "radar-frame-layer";
+
+// OpenFreeMap "Liberty" style: a decluttered vector basemap that stays out
+// of the way of the radar overlay, unlike raw OSM Mapnik tiles. Genuinely
+// free, no API key/account/rate limit (unlike CARTO's basemap CDN, which
+// per their own docs requires being a registered "grantee" for free use).
+const style = "https://tiles.openfreemap.org/styles/liberty";
+
+function coordinatesFromBounds(bounds: RadarBounds): [
+  [number, number],
+  [number, number],
+  [number, number],
+  [number, number],
+] {
+  return [
+    [bounds.west, bounds.north],
+    [bounds.east, bounds.north],
+    [bounds.east, bounds.south],
+    [bounds.west, bounds.south],
+  ];
+}
+
+function updateOverlay() {
+  const m = map.value;
+  if (!m || !props.frame || !props.bounds) return;
+
+  const coordinates = coordinatesFromBounds(props.bounds);
+  const existing = m.getSource(RADAR_SOURCE_ID) as maplibregl.ImageSource | undefined;
+
+  if (existing) {
+    existing.updateImage({ url: props.frame.url, coordinates });
+    return;
+  }
+
+  m.addSource(RADAR_SOURCE_ID, {
+    type: "image",
+    url: props.frame.url,
+    coordinates,
+  });
+  m.addLayer({
+    id: RADAR_LAYER_ID,
+    type: "raster",
+    source: RADAR_SOURCE_ID,
+    paint: { "raster-opacity": 0.85 },
+  });
+}
+
+onMounted(() => {
+  if (!mapContainer.value) return;
+  map.value = new maplibregl.Map({
+    container: mapContainer.value,
+    style,
+    center: [5.3, 52.15],
+    zoom: 6.7,
+    attributionControl: { compact: true },
+  });
+  map.value.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  map.value.on("load", updateOverlay);
+});
+
+onUnmounted(() => {
+  map.value?.remove();
+  map.value = null;
+});
+
+watch([() => props.frame, () => props.bounds], () => {
+  if (map.value?.loaded()) updateOverlay();
+});
+</script>
+
+<template>
+  <div ref="mapContainer" class="h-full w-full" />
+</template>
