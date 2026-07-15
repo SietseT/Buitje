@@ -14,6 +14,7 @@ export interface RadarBounds {
 
 const POLL_INTERVAL_MS = 60_000;
 const BASE_PLAYBACK_INTERVAL_MS = 600;
+const PAUSE_AT_END_MS = 2000;
 
 export const PLAYBACK_SPEEDS = [1, 2, 3] as const;
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
@@ -26,7 +27,7 @@ export function useRadarFrames() {
   const speed = ref<PlaybackSpeed>(1);
 
   let pollTimer: ReturnType<typeof setInterval> | undefined;
-  let playbackTimer: ReturnType<typeof setInterval> | undefined;
+  let playbackTimer: ReturnType<typeof setTimeout> | undefined;
 
   const currentFrame = computed(() => frames.value[selectedIndex.value]);
   const isLatest = computed(
@@ -55,18 +56,25 @@ export function useRadarFrames() {
     bounds.value = await res.json();
   }
 
+  function scheduleNextFrame() {
+    const atLastFrame = selectedIndex.value === frames.value.length - 1;
+    const delay = atLastFrame ? PAUSE_AT_END_MS : BASE_PLAYBACK_INTERVAL_MS / speed.value;
+    playbackTimer = setTimeout(() => {
+      selectedIndex.value = (selectedIndex.value + 1) % frames.value.length;
+      scheduleNextFrame();
+    }, delay);
+  }
+
   function play() {
     if (frames.value.length <= 1) return;
     playing.value = true;
-    clearInterval(playbackTimer);
-    playbackTimer = setInterval(() => {
-      selectedIndex.value = (selectedIndex.value + 1) % frames.value.length;
-    }, BASE_PLAYBACK_INTERVAL_MS / speed.value);
+    clearTimeout(playbackTimer);
+    scheduleNextFrame();
   }
 
   function pause() {
     playing.value = false;
-    clearInterval(playbackTimer);
+    clearTimeout(playbackTimer);
   }
 
   function togglePlay() {
@@ -91,7 +99,7 @@ export function useRadarFrames() {
 
   onUnmounted(() => {
     clearInterval(pollTimer);
-    clearInterval(playbackTimer);
+    clearTimeout(playbackTimer);
   });
 
   return {
