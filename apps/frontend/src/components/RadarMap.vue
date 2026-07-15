@@ -58,21 +58,30 @@ function coordinatesFromBounds(bounds: RadarBounds): [
   ];
 }
 
-function updateOverlay() {
-  const m = map.value;
-  if (!m || !props.frame || !props.bounds) return;
+// updateImage() loads its image asynchronously. Scrubbing the timeline
+// fast fires many overlapping updateOverlay() calls, and network/decode
+// responses can resolve out of order - whichever finishes last (in wall
+// clock time, not request order) would otherwise win, sometimes leaving
+// the wrong frame shown once the user stops. Preload with a plain Image()
+// first, guarded by a request id, so only the result of the most
+// recently requested frame is ever applied.
+let overlayRequestId = 0;
 
-  const coordinates = coordinatesFromBounds(props.bounds);
+function applyOverlay(frame: RadarFrame, bounds: RadarBounds) {
+  const m = map.value;
+  if (!m) return;
+
+  const coordinates = coordinatesFromBounds(bounds);
   const existing = m.getSource(RADAR_SOURCE_ID) as maplibregl.ImageSource | undefined;
 
   if (existing) {
-    existing.updateImage({ url: props.frame.url, coordinates });
+    existing.updateImage({ url: frame.url, coordinates });
     return;
   }
 
   m.addSource(RADAR_SOURCE_ID, {
     type: "image",
-    url: props.frame.url,
+    url: frame.url,
     coordinates,
   });
   m.addLayer({
@@ -81,6 +90,19 @@ function updateOverlay() {
     source: RADAR_SOURCE_ID,
     paint: { "raster-opacity": 0.85 },
   });
+}
+
+function updateOverlay() {
+  if (!map.value || !props.frame || !props.bounds) return;
+  const frame = props.frame;
+  const bounds = props.bounds;
+  const requestId = ++overlayRequestId;
+
+  const img = new Image();
+  img.onload = () => {
+    if (requestId === overlayRequestId) applyOverlay(frame, bounds);
+  };
+  img.src = frame.url;
 }
 
 onMounted(() => {
