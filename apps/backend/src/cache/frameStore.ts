@@ -1,4 +1,9 @@
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { config } from "../config.js";
 import type { Bounds } from "../knmi/reproject.js";
+
+const BOUNDS_FILE = path.join(config.paths.dataDir, "bounds.json");
 
 export interface StoredFrame {
   timestamp: string;
@@ -8,6 +13,7 @@ export interface StoredFrame {
 export interface FrameStore {
   put(frame: StoredFrame): void;
   get(timestamp: string): StoredFrame | undefined;
+  has(timestamp: string): boolean;
   list(): { timestamp: string }[];
   latest(): StoredFrame | undefined;
 }
@@ -31,6 +37,9 @@ export function createInMemoryFrameStore(maxFrames: number): FrameStore {
     get(timestamp) {
       return frames.get(timestamp);
     },
+    has(timestamp) {
+      return frames.has(timestamp);
+    },
     list() {
       return Array.from(frames.keys())
         .sort()
@@ -48,4 +57,20 @@ export let gridBounds: Bounds | null = null;
 
 export function setGridBounds(bounds: Bounds): void {
   gridBounds = bounds;
+  mkdirSync(config.paths.dataDir, { recursive: true });
+  writeFileSync(BOUNDS_FILE, JSON.stringify(bounds));
+}
+
+/**
+ * Restores gridBounds persisted by a previous run, so the map overlay can
+ * position itself immediately on restart instead of waiting for the next
+ * newly-downloaded frame (which the poller may skip via backfill's
+ * already-cached check, delaying it by up to a full poll interval).
+ */
+export function loadGridBounds(): void {
+  try {
+    gridBounds = JSON.parse(readFileSync(BOUNDS_FILE, "utf-8"));
+  } catch {
+    // no persisted bounds yet
+  }
 }

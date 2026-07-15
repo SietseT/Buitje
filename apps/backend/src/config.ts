@@ -33,6 +33,8 @@ export const config = {
   },
   paths: {
     tmpDir: path.join(here, "..", ".tmp"),
+    dataDir: path.join(here, "..", ".data"),
+    framesDir: path.join(here, "..", ".data", "frames"),
     frontendDist: path.join(here, "..", "..", "frontend", "dist"),
   },
 };

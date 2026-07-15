@@ -50,14 +50,6 @@ async function fetchWithRetry(
   }
 }
 
-export async function fetchLatestFilename(): Promise<string> {
-  const [filename] = await fetchRecentFilenames(1);
-  if (!filename) {
-    throw new Error("KNMI list-files returned no files");
-  }
-  return filename;
-}
-
 /** Returns up to `count` recent filenames, oldest first. */
 export async function fetchRecentFilenames(count: number): Promise<string[]> {
   const url = datasetUrl(`/files?maxKeys=${count}&sorting=desc&orderBy=created`);

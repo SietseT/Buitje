@@ -2,12 +2,14 @@ import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import fs from "node:fs";
 import { config } from "./config.js";
-import { createInMemoryFrameStore } from "./cache/frameStore.js";
+import { createDiskFrameStore } from "./cache/diskFrameStore.js";
+import { loadGridBounds } from "./cache/frameStore.js";
 import { startPoller } from "./knmi/poller.js";
 import { registerFrameRoutes } from "./routes/frames.js";
 
 const app = Fastify({ logger: true });
-const store = createInMemoryFrameStore(config.cache.maxFrames);
+loadGridBounds();
+const store = createDiskFrameStore(config.cache.maxFrames, config.paths.framesDir);
 
 registerFrameRoutes(app, store);
 
