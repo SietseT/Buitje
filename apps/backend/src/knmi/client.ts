@@ -50,7 +50,7 @@ async function fetchWithRetry(
   }
 }
 
-/** Returns up to `count` recent filenames, oldest first. */
+/** Returns up to `count` recent filenames, newest first. */
 export async function fetchRecentFilenames(count: number): Promise<string[]> {
   const url = datasetUrl(`/files?maxKeys=${count}&sorting=desc&orderBy=created`);
   const res = await fetchWithRetry(url, { headers: authHeaders() });
@@ -58,7 +58,7 @@ export async function fetchRecentFilenames(count: number): Promise<string[]> {
     throw new Error(`KNMI list-files failed: ${res.status} ${res.statusText}`);
   }
   const body = (await res.json()) as KnmiListFilesResponse;
-  return body.files.map((f) => f.filename).reverse();
+  return body.files.map((f) => f.filename);
 }
 
 export async function downloadFile(filename: string): Promise<Buffer> {

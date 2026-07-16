@@ -22,10 +22,15 @@ export const config = {
     datasetVersion: "2.0",
   },
   poll: {
-    intervalMs: Number(process.env.POLL_INTERVAL_MS ?? 5 * 60 * 1000),
+    intervalMs: Number(process.env.POLL_INTERVAL_MS ?? 60 * 1000),
   },
   cache: {
     maxFrames: Number(process.env.MAX_FRAMES ?? 24), // ~2 hours at 5 min/frame
+    // How many missing frames to download in parallel during backfill. A
+    // dedicated (non-shared) KNMI key makes this much less rate-limit
+    // sensitive than the old shared demo key was; fetchWithRetry's 429
+    // backoff remains as a general safety net regardless.
+    backfillConcurrency: Number(process.env.BACKFILL_CONCURRENCY ?? 8),
   },
   server: {
     port: Number(process.env.PORT ?? 3000),
