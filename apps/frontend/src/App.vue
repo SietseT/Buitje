@@ -144,6 +144,7 @@ function reload() {
       class="absolute inset-x-0 bottom-6 z-10 flex flex-col items-center gap-2 px-4 sm:flex-row sm:items-stretch sm:justify-center"
     >
       <Timeline
+        class="order-2 sm:order-1"
         :frames="frames"
         :selected-index="selectedIndex"
         :playing="playing"
@@ -152,7 +153,7 @@ function reload() {
         @toggle-play="togglePlay"
         @set-speed="setSpeed"
       />
-      <Legend />
+      <Legend class="order-1 sm:order-2" />
     </div>
   </div>
 </template>

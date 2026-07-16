@@ -4,6 +4,7 @@ import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
 import type { Marker } from "@/composables/useMarkers";
+import { geolocateGranted } from "@/composables/useGeolocatePreference";
 import { useI18n } from "@/i18n/messages";
 
 const props = defineProps<{
@@ -314,12 +315,28 @@ onMounted(() => {
     positionOptions: { enableHighAccuracy: false, timeout: 10000 },
     trackUserLocation: true,
     showUserLocation: true,
-    // Default fitBoundsOptions zooms in to street level - all we want here
-    // is to reveal roughly where the user is, not replace the radar
-    // overview with a close-up.
-    fitBoundsOptions: { maxZoom: 9 },
   });
-  geolocateControl.on("error", () => emit("geolocateError"));
+  // GeolocateControl has no public option to show the location dot without
+  // moving/zooming the camera to it - _updateCamera is the (undocumented,
+  // underscore-prefixed) internal method that does the fitBounds/pan/zoom;
+  // _updateMarker (which draws the dot + accuracy circle) is separate and
+  // unaffected, so neutering this still shows the dot with zero camera
+  // movement. This relies on MapLibre's internals and could break on a
+  // future maplibre-gl upgrade - re-check this if the geolocate button
+  // stops behaving after a version bump.
+  geolocateControl._updateCamera = () => {};
+  geolocateControl.on("geolocate", () => {
+    geolocateGranted.value = true;
+  });
+  geolocateControl.on("error", (error: GeolocationPositionError) => {
+    // Only an explicit permission denial should un-remember a prior grant -
+    // a transient POSITION_UNAVAILABLE/TIMEOUT (e.g. momentarily no GPS fix)
+    // shouldn't force the user to re-click next time.
+    if (error.code === error.PERMISSION_DENIED) {
+      geolocateGranted.value = false;
+    }
+    emit("geolocateError");
+  });
   map.value.addControl(geolocateControl, "top-right");
 
   map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
@@ -327,6 +344,13 @@ onMounted(() => {
     updateOverlay();
     applyLocalLabelLanguage();
     syncMarkers();
+    // Location was previously granted - re-trigger it automatically so the
+    // user's location keeps showing across refreshes instead of requiring
+    // them to click the geolocate button again every visit. The browser
+    // won't re-prompt since permission is already granted.
+    if (geolocateGranted.value) {
+      geolocateControl.trigger();
+    }
   });
 
   // The container's size isn't always settled at construction time (e.g.
