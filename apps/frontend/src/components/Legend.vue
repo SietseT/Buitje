@@ -16,10 +16,20 @@ const STOPS = [
   { dbz: 65, r: 200, g: 30, b: 200, a: 255 },
 ] as const;
 
-const maxDbz = STOPS[STOPS.length - 1].dbz;
+// The first two stops (0 and 7 dBZ) are fully transparent - below the
+// visible-rain floor, nothing is drawn on the map there. Including them in
+// the gradient renders as solid white (the legend pill's own background
+// showing through), which reads as "white = light rain" even though white
+// is never actually shown on the map. Only render the stops that are
+// actually visible, so the bar starts at the palest color that really
+// appears.
+const VISIBLE_STOPS = STOPS.filter((s) => s.a > 0);
+const minDbz = VISIBLE_STOPS[0].dbz;
+const maxDbz = VISIBLE_STOPS[VISIBLE_STOPS.length - 1].dbz;
 
-const gradient = `linear-gradient(to right, ${STOPS.map(
-  (s) => `rgba(${s.r}, ${s.g}, ${s.b}, ${(s.a / 255).toFixed(2)}) ${((s.dbz / maxDbz) * 100).toFixed(1)}%`,
+const gradient = `linear-gradient(to right, ${VISIBLE_STOPS.map(
+  (s) =>
+    `rgba(${s.r}, ${s.g}, ${s.b}, ${(s.a / 255).toFixed(2)}) ${(((s.dbz - minDbz) / (maxDbz - minDbz)) * 100).toFixed(1)}%`,
 ).join(", ")})`;
 </script>
 
