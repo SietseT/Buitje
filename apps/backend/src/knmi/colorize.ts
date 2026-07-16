@@ -28,7 +28,7 @@ const STOPS: ColorStop[] = [
   { dbz: 65, r: 200, g: 30, b: 200, a: 255 },
 ];
 
-function dbzToRGBA(dbz: number): [number, number, number, number] {
+export function dbzToRGBA(dbz: number): [number, number, number, number] {
   if (dbz <= STOPS[0].dbz) return [STOPS[0].r, STOPS[0].g, STOPS[0].b, 0];
   const last = STOPS[STOPS.length - 1];
   if (dbz >= last.dbz) return [last.r, last.g, last.b, last.a];

@@ -28,9 +28,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * The shared anonymous KNMI key is rate-limited (50 req/min) across ALL
- * anonymous users, so 429s are expected under normal use, not just abuse.
- * Retry with backoff instead of dropping the frame.
+ * Retries with backoff on both HTTP 429 (rate limiting) and thrown network
+ * errors (DNS hiccups, connection resets) instead of dropping the frame on
+ * the first transient blip.
  */
 async function fetchWithRetry(
   url: string,
@@ -38,7 +38,14 @@ async function fetchWithRetry(
   retries = 4,
 ): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, init);
+    let res: Response;
+    try {
+      res = await fetch(url, init);
+    } catch (err) {
+      if (attempt >= retries) throw err;
+      await sleep(2000 * (attempt + 1));
+      continue;
+    }
     if (res.status !== 429 || attempt >= retries) {
       return res;
     }

@@ -45,13 +45,27 @@ function boundsFromCorners(corners: number[]): Bounds {
 }
 
 /**
+ * NOTE: the row/column offset sign convention in KNMI's HDF5 format is NOT
+ * symmetric — empirically verified against a real file's own
+ * geo_product_corners (see CLAUDE.md). Using `-` for both (the "obvious"
+ * symmetric guess) silently produces a vertically-offset-by-~7300-rows
+ * image. Pinned by reproject.test.ts - don't "clean this up" without
+ * re-verifying against a real downloaded file first.
+ */
+export function sourceRowCol(
+  x: number,
+  y: number,
+  geo: Pick<RadarGeometry, "columnOffset" | "rowOffset" | "pixelSizeX" | "pixelSizeY">,
+): { col: number; row: number } {
+  return {
+    col: Math.round((x - geo.columnOffset) / geo.pixelSizeX),
+    row: Math.round((y + geo.rowOffset) / geo.pixelSizeY),
+  };
+}
+
+/**
  * Builds (and caches) a nearest-neighbor remap from a regular target WGS84
  * lon/lat grid back to the source radar grid's pixel indices.
- *
- * NOTE: the row/column offset sign convention in KNMI's HDF5 format is NOT
- * symmetric — empirically verified against the file's own geo_product_corners:
- *   col = (x - columnOffset) / pixelSizeX
- *   row = (y + rowOffset) / pixelSizeY   (note: `+`, not `-`)
  */
 export function getRemapGrid(geo: RadarGeometry): RemapGrid {
   const signature = signatureOf(geo);
@@ -70,8 +84,7 @@ export function getRemapGrid(geo: RadarGeometry): RemapGrid {
     for (let col = 0; col < width; col++) {
       const lon = bounds.west + (col / (width - 1)) * (bounds.east - bounds.west);
       const [x, y] = transformer.forward([lon, lat]);
-      const srcCol = Math.round((x - geo.columnOffset) / geo.pixelSizeX);
-      const srcRow = Math.round((y + geo.rowOffset) / geo.pixelSizeY);
+      const { col: srcCol, row: srcRow } = sourceRowCol(x, y, geo);
 
       const idx = row * width + col;
       if (srcCol >= 0 && srcCol < geo.width && srcRow >= 0 && srcRow < geo.height) {

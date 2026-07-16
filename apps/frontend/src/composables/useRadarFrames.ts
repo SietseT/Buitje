@@ -13,7 +13,11 @@ export interface RadarBounds {
 }
 
 const POLL_INTERVAL_MS = 60_000;
-const BASE_PLAYBACK_INTERVAL_MS = 600;
+const RECONNECT_INTERVAL_MS = 5_000;
+// Halved from 600 so each speed tier maps to what used to be one tier
+// faster (0.5x now plays at the old 1x rate, 1x at the old 2x rate), with
+// 2x landing at twice the old 2x rate.
+const BASE_PLAYBACK_INTERVAL_MS = 300;
 const PAUSE_AT_END_MS = 2000;
 
 export const PLAYBACK_SPEEDS = [0.5, 1, 2] as const;
@@ -25,35 +29,66 @@ export function useRadarFrames() {
   const selectedIndex = ref(0);
   const playing = ref(false);
   const speed = ref<PlaybackSpeed>(1);
+  // Surfaced to the UI so a temporarily-unreachable backend is visible
+  // instead of the map just silently going stale with no explanation.
+  const connected = ref(true);
 
   let pollTimer: ReturnType<typeof setInterval> | undefined;
   let playbackTimer: ReturnType<typeof setTimeout> | undefined;
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 
   const currentFrame = computed(() => frames.value[selectedIndex.value]);
   const isLatest = computed(
     () => selectedIndex.value === frames.value.length - 1,
   );
 
-  async function refreshFrames() {
-    const res = await fetch("/api/frames");
-    if (!res.ok) return;
-    const next: RadarFrame[] = await res.json();
-    if (next.length === 0) return;
+  // Retries sooner than the normal POLL_INTERVAL_MS while disconnected, so
+  // the app recovers quickly once the backend is reachable again instead of
+  // waiting up to a full minute for the next scheduled poll.
+  function scheduleReconnect() {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(async () => {
+      reconnectTimer = undefined;
+      await Promise.all([refreshFrames(), refreshBounds()]);
+    }, RECONNECT_INTERVAL_MS);
+  }
 
-    const wasAtLatest = isLatest.value || frames.value.length === 0;
-    frames.value = next;
-    if (wasAtLatest) {
-      selectedIndex.value = frames.value.length - 1;
-    } else {
-      selectedIndex.value = Math.min(selectedIndex.value, frames.value.length - 1);
+  async function refreshFrames() {
+    try {
+      const res = await fetch("/api/frames");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      const next: RadarFrame[] = await res.json();
+      connected.value = true;
+      if (next.length === 0) return;
+
+      const hadNoFrames = frames.value.length === 0;
+      const wasAtLatest = isLatest.value || hadNoFrames;
+      frames.value = next;
+      if (wasAtLatest) {
+        selectedIndex.value = frames.value.length - 1;
+      } else {
+        selectedIndex.value = Math.min(selectedIndex.value, frames.value.length - 1);
+      }
+      // Covers both the normal first load and recovering from a previous
+      // total failure - either way, frames just went from none to some.
+      if (hadNoFrames) play();
+    } catch {
+      connected.value = false;
+      scheduleReconnect();
     }
   }
 
   async function refreshBounds() {
     if (bounds.value) return;
-    const res = await fetch("/api/frames/bounds");
-    if (!res.ok) return;
-    bounds.value = await res.json();
+    try {
+      const res = await fetch("/api/frames/bounds");
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      bounds.value = await res.json();
+      connected.value = true;
+    } catch {
+      connected.value = false;
+      scheduleReconnect();
+    }
   }
 
   // The extra dwell only applies when playback organically arrives at the
@@ -97,14 +132,17 @@ export function useRadarFrames() {
   }
 
   onMounted(async () => {
+    // Neither call throws anymore (failures are caught internally and
+    // retried via scheduleReconnect), so this always resolves and playback
+    // setup always runs - even if the very first fetch fails.
     await Promise.all([refreshFrames(), refreshBounds()]);
-    play();
     pollTimer = setInterval(refreshFrames, POLL_INTERVAL_MS);
   });
 
   onUnmounted(() => {
     clearInterval(pollTimer);
     clearTimeout(playbackTimer);
+    clearTimeout(reconnectTimer);
   });
 
   return {
@@ -115,6 +153,7 @@ export function useRadarFrames() {
     isLatest,
     playing,
     speed,
+    connected,
     play,
     pause,
     togglePlay,

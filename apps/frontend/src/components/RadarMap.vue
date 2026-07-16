@@ -308,7 +308,10 @@ onMounted(() => {
   // location dot itself; we only need to surface denial/failure so the app
   // can point the user at the manual-marker fallback instead.
   const geolocateControl = new maplibregl.GeolocateControl({
-    positionOptions: { enableHighAccuracy: false },
+    // Without an explicit timeout the Geolocation API defaults to Infinity,
+    // so a stalled location fix would hang forever with no feedback,
+    // defeating the "reject is fine, just add a marker" fallback UX below.
+    positionOptions: { enableHighAccuracy: false, timeout: 10000 },
     trackUserLocation: true,
     showUserLocation: true,
     // Default fitBoundsOptions zooms in to street level - all we want here

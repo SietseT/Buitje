@@ -15,6 +15,9 @@ const messages = {
     "markers.placingCancel": "Annuleren",
     "location.deniedHint":
       "Kon je locatie niet ophalen — geen probleem, voeg gewoon een markering handmatig toe.",
+    "connection.lost": "Kan de server niet bereiken — opnieuw proberen…",
+    "error.fatal": "Er is iets misgegaan.",
+    "error.reload": "Herladen",
   },
   en: {
     "legend.title": "Rain intensity",
@@ -30,6 +33,9 @@ const messages = {
     "markers.placingCancel": "Cancel",
     "location.deniedHint":
       "Couldn't get your location — that's all good, just add a marker manually instead.",
+    "connection.lost": "Can't reach the server — retrying…",
+    "error.fatal": "Something went wrong.",
+    "error.reload": "Reload",
   },
 } as const;
 

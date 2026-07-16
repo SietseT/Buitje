@@ -7,6 +7,7 @@ import Legend from "@/components/Legend.vue";
 import ControlsMenu from "@/components/ControlsMenu.vue";
 import { useRadarFrames } from "@/composables/useRadarFrames";
 import { useMarkers } from "@/composables/useMarkers";
+import { fatalError } from "@/composables/useFatalError";
 import { useI18n } from "@/i18n/messages";
 
 const {
@@ -16,6 +17,7 @@ const {
   currentFrame,
   playing,
   speed,
+  connected,
   togglePlay,
   selectIndex,
   setSpeed,
@@ -56,10 +58,24 @@ function handleGeolocateError() {
 }
 
 onUnmounted(() => clearTimeout(locationHintTimer));
+
+function reload() {
+  window.location.reload();
+}
 </script>
 
 <template>
   <div class="relative h-full w-full">
+    <div
+      v-if="fatalError"
+      class="absolute inset-x-0 top-0 z-20 flex items-center justify-center gap-3 bg-destructive px-4 py-2 text-sm text-white"
+    >
+      <span>{{ t("error.fatal") }}</span>
+      <button type="button" class="font-medium underline underline-offset-2" @click="reload">
+        {{ t("error.reload") }}
+      </button>
+    </div>
+
     <RadarMap
       ref="radarMap"
       :frame="currentFrame"
@@ -110,6 +126,17 @@ onUnmounted(() => clearTimeout(locationHintTimer));
         >
           {{ t("markers.placingCancel") }}
         </button>
+      </div>
+    </div>
+
+    <div
+      v-if="!connected"
+      class="absolute inset-x-0 bottom-24 z-10 flex justify-center px-4"
+    >
+      <div
+        class="rounded-xl bg-white/90 px-4 py-2 text-sm shadow-lg backdrop-blur dark:bg-neutral-900/90"
+      >
+        {{ t("connection.lost") }}
       </div>
     </div>
 

@@ -5,7 +5,7 @@ services:
       - "3000:3000"
     environment:
       KNMI_API_KEY: ${KNMI_API_KEY}
-      POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-300000}
+      POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-60000}
       MAX_FRAMES: ${MAX_FRAMES:-24}
     volumes:
       - buitje-frames:/app/apps/backend/.data

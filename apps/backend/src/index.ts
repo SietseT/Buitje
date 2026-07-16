@@ -8,6 +8,19 @@ import { startPoller } from "./knmi/poller.js";
 import { registerFrameRoutes } from "./routes/frames.js";
 
 const app = Fastify({ logger: true });
+
+// Crash loudly and let Docker's `restart: unless-stopped` bring the process
+// back up cleanly, rather than continuing in an unknown state or exiting
+// with no explanation in the logs.
+process.on("unhandledRejection", (reason) => {
+  app.log.error({ reason }, "[fatal] unhandled promise rejection");
+  process.exit(1);
+});
+process.on("uncaughtException", (err) => {
+  app.log.error({ err }, "[fatal] uncaught exception");
+  process.exit(1);
+});
+
 loadGridBounds();
 const store = createDiskFrameStore(config.cache.maxFrames, config.paths.framesDir);
 
