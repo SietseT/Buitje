@@ -11,16 +11,20 @@ interface ColorStop {
 }
 
 // Standard-ish reflectivity color ramp: transparent below the visible-rain
-// floor, then blue -> green -> yellow -> orange -> red -> magenta with alpha
-// ramping in over the first few stops so light drizzle fades in softly.
+// floor, then light blue -> darker blue -> yellow -> orange -> red -> magenta
+// with alpha ramping in over the first few stops so light drizzle fades in
+// softly. No green step - the blue deepens right up until it jumps to yellow.
+// Yellow (medium/heavy rain) only kicks in at 45 dBZ - moved up from 35 so
+// the blue band covers light-to-moderate rain, with orange/red/purple
+// compressed proportionally above it to still reach the same 65 dBZ ceiling.
 const STOPS: ColorStop[] = [
   { dbz: 0, r: 100, g: 180, b: 255, a: 0 },
   { dbz: 7, r: 100, g: 180, b: 255, a: 0 },
   { dbz: 15, r: 60, g: 140, b: 245, a: 200 },
-  { dbz: 25, r: 60, g: 200, b: 90, a: 220 },
-  { dbz: 35, r: 240, g: 220, b: 40, a: 235 },
-  { dbz: 45, r: 250, g: 140, b: 30, a: 245 },
-  { dbz: 55, r: 230, g: 30, b: 30, a: 255 },
+  { dbz: 25, r: 20, g: 60, b: 170, a: 220 },
+  { dbz: 45, r: 240, g: 220, b: 40, a: 235 },
+  { dbz: 52, r: 250, g: 140, b: 30, a: 245 },
+  { dbz: 58, r: 230, g: 30, b: 30, a: 255 },
   { dbz: 65, r: 200, g: 30, b: 200, a: 255 },
 ];
 
