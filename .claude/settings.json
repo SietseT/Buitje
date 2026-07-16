@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(ps -p 37525 -o pid,etime,command)",
+      "Bash(kill 38263)",
+      "Bash(curl -s -o /tmp/verify-preview-3.png -w \"preview: HTTP %{http_code}, %{size_download} bytes\\\\n\" \"http://localhost:3000/api/admin/colors/preview\")",
+      "Read(//tmp/**)",
+      "Bash(ps -p 40199 -o pid,ppid,etime,command)",
+      "Bash(kill 40199)",
+      "Bash(ps -p 20977 -o pid,ppid,etime,command)"
+    ]
+  }
+}

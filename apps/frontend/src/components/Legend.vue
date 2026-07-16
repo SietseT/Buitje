@@ -6,14 +6,21 @@ const { t } = useI18n();
 // Mirrors the color ramp in apps/backend/src/knmi/colorize.ts (STOPS).
 // Keep these in sync if that ramp changes.
 const STOPS = [
-  { dbz: 0, r: 100, g: 180, b: 255, a: 0 },
-  { dbz: 7, r: 100, g: 180, b: 255, a: 0 },
-  { dbz: 15, r: 60, g: 140, b: 245, a: 200 },
-  { dbz: 25, r: 20, g: 60, b: 170, a: 220 },
-  { dbz: 45, r: 240, g: 220, b: 40, a: 235 },
-  { dbz: 52, r: 250, g: 140, b: 30, a: 245 },
-  { dbz: 58, r: 230, g: 30, b: 30, a: 255 },
-  { dbz: 65, r: 200, g: 30, b: 200, a: 255 },
+  { dbz: 5, r: 6, g: 232, b: 228, a: 200 },
+  { dbz: 10, r: 9, g: 158, b: 242, a: 200 },
+  { dbz: 15, r: 4, g: 0, b: 243, a: 200 },
+  { dbz: 20, r: 0, g: 248, b: 6, a: 200 },
+  { dbz: 25, r: 6, g: 194, b: 0, a: 200 },
+  { dbz: 30, r: 0, g: 136, b: 0, a: 200 },
+  { dbz: 35, r: 252, g: 246, b: 2, a: 200 },
+  { dbz: 40, r: 215, g: 177, b: 0, a: 200 },
+  { dbz: 45, r: 255, g: 148, b: 0, a: 200 },
+  { dbz: 50, r: 240, g: 0, b: 0, a: 200 },
+  { dbz: 55, r: 217, g: 0, b: 0, a: 215 },
+  { dbz: 60, r: 164, g: 7, b: 16, a: 225 },
+  { dbz: 65, r: 249, g: 0, b: 244, a: 235 },
+  { dbz: 70, r: 136, g: 81, b: 201, a: 245 },
+  { dbz: 75, r: 252, g: 252, b: 252, a: 255 },
 ] as const;
 
 // The first two stops (0 and 7 dBZ) are fully transparent - below the

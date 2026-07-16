@@ -49,6 +49,10 @@ function handleFlyTo(lng: number, lat: number) {
     </PopoverTrigger>
 
     <PopoverContent side="bottom" align="start" class="w-64">
+      <div class="mb-2 flex items-center gap-2 border-b border-border pb-2">
+        <img src="/favicon.svg" alt="" class="size-4" />
+        <span class="text-sm font-semibold">Buitje</span>
+      </div>
       <LanguageSelector />
       <div class="mt-2 border-t border-border pt-2">
         <MarkerPanel

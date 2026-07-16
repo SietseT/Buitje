@@ -2,7 +2,7 @@ import { PNG } from "pngjs";
 import type { RadarCalibration } from "./parseRadar.js";
 import type { RemapGrid } from "./reproject.js";
 
-interface ColorStop {
+export interface ColorStop {
   dbz: number;
   r: number;
   g: number;
@@ -17,25 +17,35 @@ interface ColorStop {
 // Yellow (medium/heavy rain) only kicks in at 45 dBZ - moved up from 35 so
 // the blue band covers light-to-moderate rain, with orange/red/purple
 // compressed proportionally above it to still reach the same 65 dBZ ceiling.
-const STOPS: ColorStop[] = [
-  { dbz: 0, r: 100, g: 180, b: 255, a: 0 },
-  { dbz: 7, r: 100, g: 180, b: 255, a: 0 },
-  { dbz: 15, r: 60, g: 140, b: 245, a: 200 },
-  { dbz: 25, r: 20, g: 60, b: 170, a: 220 },
-  { dbz: 45, r: 240, g: 220, b: 40, a: 235 },
-  { dbz: 52, r: 250, g: 140, b: 30, a: 245 },
-  { dbz: 58, r: 230, g: 30, b: 30, a: 255 },
-  { dbz: 65, r: 200, g: 30, b: 200, a: 255 },
+export const DEFAULT_STOPS: ColorStop[] = [
+  { dbz: 5, r: 6, g: 232, b: 228, a: 200 },
+  { dbz: 10, r: 9, g: 158, b: 242, a: 200 },
+  { dbz: 15, r: 4, g: 0, b: 243, a: 200 },
+  { dbz: 20, r: 0, g: 248, b: 6, a: 200 },
+  { dbz: 25, r: 6, g: 194, b: 0, a: 200 },
+  { dbz: 30, r: 0, g: 136, b: 0, a: 200 },
+  { dbz: 35, r: 252, g: 246, b: 2, a: 200 },
+  { dbz: 40, r: 215, g: 177, b: 0, a: 200 },
+  { dbz: 45, r: 255, g: 148, b: 0, a: 200 },
+  { dbz: 50, r: 240, g: 0, b: 0, a: 200 },
+  { dbz: 55, r: 217, g: 0, b: 0, a: 215 },
+  { dbz: 60, r: 164, g: 7, b: 16, a: 225 },
+  { dbz: 65, r: 249, g: 0, b: 244, a: 235 },
+  { dbz: 70, r: 136, g: 81, b: 201, a: 245 },
+  { dbz: 75, r: 252, g: 252, b: 252, a: 255 },
 ];
 
-export function dbzToRGBA(dbz: number): [number, number, number, number] {
-  if (dbz <= STOPS[0].dbz) return [STOPS[0].r, STOPS[0].g, STOPS[0].b, 0];
-  const last = STOPS[STOPS.length - 1];
+export function dbzToRGBA(
+  dbz: number,
+  stops: ColorStop[] = DEFAULT_STOPS,
+): [number, number, number, number] {
+  if (dbz <= stops[0].dbz) return [stops[0].r, stops[0].g, stops[0].b, 0];
+  const last = stops[stops.length - 1];
   if (dbz >= last.dbz) return [last.r, last.g, last.b, last.a];
 
-  for (let i = 0; i < STOPS.length - 1; i++) {
-    const s0 = STOPS[i];
-    const s1 = STOPS[i + 1];
+  for (let i = 0; i < stops.length - 1; i++) {
+    const s0 = stops[i];
+    const s1 = stops[i + 1];
     if (dbz >= s0.dbz && dbz <= s1.dbz) {
       const t = (dbz - s0.dbz) / (s1.dbz - s0.dbz);
       return [
@@ -53,6 +63,7 @@ export function colorizeFrame(
   pixels: Uint8Array,
   calibration: RadarCalibration,
   remap: RemapGrid,
+  stops: ColorStop[] = DEFAULT_STOPS,
 ): Buffer {
   const { width, height, sourceIndex } = remap;
   const png = new PNG({ width, height });
@@ -73,7 +84,7 @@ export function colorizeFrame(
     }
 
     const dbz = calibration.a * pv + calibration.b;
-    const [r, g, b, a] = dbzToRGBA(dbz);
+    const [r, g, b, a] = dbzToRGBA(dbz, stops);
     png.data[outOffset] = r;
     png.data[outOffset + 1] = g;
     png.data[outOffset + 2] = b;

@@ -6,6 +6,7 @@ import { createDiskFrameStore } from "./cache/diskFrameStore.js";
 import { loadGridBounds } from "./cache/frameStore.js";
 import { startPoller } from "./knmi/poller.js";
 import { registerFrameRoutes } from "./routes/frames.js";
+import { registerAdminRoutes } from "./routes/admin.js";
 
 const app = Fastify({ logger: true });
 
@@ -25,6 +26,10 @@ loadGridBounds();
 const store = createDiskFrameStore(config.cache.maxFrames, config.paths.framesDir);
 
 registerFrameRoutes(app, store);
+
+if (process.env.NODE_ENV !== "production") {
+  registerAdminRoutes(app);
+}
 
 if (fs.existsSync(config.paths.frontendDist)) {
   app.register(fastifyStatic, {
