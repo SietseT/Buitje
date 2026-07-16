@@ -9,9 +9,7 @@ const options: { value: Locale; label: string }[] = [
 </script>
 
 <template>
-  <div
-    class="flex w-40 gap-1 rounded-xl bg-white/90 p-1 shadow-lg backdrop-blur dark:bg-neutral-900/90"
-  >
+  <div class="flex w-40 gap-1 rounded-md bg-muted p-1">
     <Button
       v-for="opt in options"
       :key="opt.value"

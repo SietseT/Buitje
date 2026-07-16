@@ -4,8 +4,7 @@ import { X } from "@lucide/vue";
 import RadarMap from "@/components/RadarMap.vue";
 import Timeline from "@/components/Timeline.vue";
 import Legend from "@/components/Legend.vue";
-import LanguageSelector from "@/components/LanguageSelector.vue";
-import MarkerPanel from "@/components/MarkerPanel.vue";
+import ControlsMenu from "@/components/ControlsMenu.vue";
 import { useRadarFrames } from "@/composables/useRadarFrames";
 import { useMarkers } from "@/composables/useMarkers";
 import { useI18n } from "@/i18n/messages";
@@ -75,7 +74,7 @@ onUnmounted(() => clearTimeout(locationHintTimer));
     />
 
     <div class="absolute top-4 left-4 z-10">
-      <LanguageSelector />
+      <ControlsMenu :markers="markers" @add="armPlacing" @delete-marker="removeMarker" @fly-to="handleFlyTo" />
     </div>
 
     <div
@@ -126,10 +125,7 @@ onUnmounted(() => clearTimeout(locationHintTimer));
         @toggle-play="togglePlay"
         @set-speed="setSpeed"
       />
-      <div class="flex items-stretch gap-2">
-        <MarkerPanel :markers="markers" @add="armPlacing" @delete-marker="removeMarker" @fly-to="handleFlyTo" />
-        <Legend />
-      </div>
+      <Legend />
     </div>
   </div>
 </template>
