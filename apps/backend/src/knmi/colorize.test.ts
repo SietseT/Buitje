@@ -9,20 +9,20 @@ import { dbzToRGBA } from "./colorize.js";
 // same ramp for the on-map legend gradient.
 
 test("dbzToRGBA: below the visible-rain floor is fully transparent", () => {
-  assert.deepEqual(dbzToRGBA(0), [100, 180, 255, 0]);
+  assert.deepEqual(dbzToRGBA(0), [6, 232, 228, 0]);
 });
 
 test("dbzToRGBA: exact stop values pass through unchanged", () => {
-  assert.deepEqual(dbzToRGBA(15), [60, 140, 245, 200]); // light blue
-  assert.deepEqual(dbzToRGBA(45), [240, 220, 40, 235]); // yellow - medium/heavy rain
-  assert.deepEqual(dbzToRGBA(65), [200, 30, 200, 255]); // purple ceiling
+  assert.deepEqual(dbzToRGBA(15), [4, 0, 243, 200]); // deep blue
+  assert.deepEqual(dbzToRGBA(45), [255, 148, 0, 200]); // orange - medium/heavy rain
+  assert.deepEqual(dbzToRGBA(65), [249, 0, 244, 235]); // magenta
 });
 
 test("dbzToRGBA: clamps to the last stop above the ceiling", () => {
-  assert.deepEqual(dbzToRGBA(100), [200, 30, 200, 255]);
+  assert.deepEqual(dbzToRGBA(100), [252, 252, 252, 255]);
 });
 
 test("dbzToRGBA: interpolates linearly between stops", () => {
-  // Midpoint between the 15 dBZ (light blue) and 25 dBZ (darker blue) stops.
-  assert.deepEqual(dbzToRGBA(20), [40, 100, 208, 210]);
+  // Midpoint between the 15 dBZ and 20 dBZ stops.
+  assert.deepEqual(dbzToRGBA(17.5), [2, 124, 125, 200]);
 });
