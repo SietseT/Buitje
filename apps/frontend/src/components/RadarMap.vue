@@ -31,6 +31,18 @@ let resizeObserver: ResizeObserver | null = null;
 const RADAR_SOURCE_ID = "radar-frame";
 const RADAR_LAYER_ID = "radar-frame-layer";
 
+// Netherlands' own bounding box (roughly 3.2-7.35°E, 50.72-53.68°N),
+// independent of the async /api/frames/bounds fetch (which resolves after
+// mount and covers a wider area - NL plus a sliver of BE/DE). Passed as the
+// initial `bounds` constructor option so MapLibre computes the zoom that
+// fits it to the container's actual size - this naturally zooms out further
+// on narrow mobile viewports instead of cropping the country, without
+// needing any JS viewport-width check.
+const NETHERLANDS_BOUNDS: maplibregl.LngLatBoundsLike = [
+  [3.2, 50.72],
+  [7.35, 53.68],
+];
+
 // OpenFreeMap's Liberty style prefers the English name ("name_en") over the
 // local OSM "name" for every label layer, whenever one exists. We always
 // want local (Dutch) place names on the map, so rewrite that expression on
@@ -294,8 +306,12 @@ onMounted(() => {
   map.value = new maplibregl.Map({
     container: mapContainer.value,
     style,
-    center: [5.3, 52.15],
-    zoom: 6.7,
+    bounds: NETHERLANDS_BOUNDS,
+    // Bottom padding is much larger than the other sides to keep the
+    // Timeline/Legend toolbar (which stacks two pills tall on mobile) from
+    // covering southern Limburg - a uniform padding would either still get
+    // covered there or zoom out further than needed on the other sides.
+    fitBoundsOptions: { padding: { top: 40, bottom: 160, left: 40, right: 40 } },
     // Default bottom-right attribution wraps to 2 lines on narrow viewports,
     // spanning nearly the full width and colliding with the bottom
     // timeline/legend toolbar. Move it to top-right instead, alongside the
