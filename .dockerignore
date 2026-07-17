@@ -2,6 +2,11 @@ node_modules
 **/node_modules
 **/dist
 **/.tmp
+**/.data
 .git
 .env
 **/.env
+.github
+.claude
+*.md
+docker-compose*.yml
