@@ -11,7 +11,14 @@
       "Bash(kill 40199)",
       "Bash(ps -p 20977 -o pid,ppid,etime,command)",
       "Bash(pnpm build *)",
-      "Bash(pnpm run *)"
+      "Bash(pnpm run *)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm update *)",
+      "Bash(pnpm --filter backend build)",
+      "Bash(pnpm --filter backend test)",
+      "Bash(pnpm --filter frontend build)",
+      "Bash(npm view *)"
     ]
   }
 }
