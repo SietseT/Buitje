@@ -22,7 +22,13 @@ test("dbzToRGBA: clamps to the last stop above the ceiling", () => {
   assert.deepEqual(dbzToRGBA(100), [252, 252, 252, 255]);
 });
 
-test("dbzToRGBA: interpolates linearly between stops", () => {
+test("dbzToRGBA: smooth transition (default) - interpolates linearly between stops", () => {
   // Midpoint between the 15 dBZ and 20 dBZ stops.
   assert.deepEqual(dbzToRGBA(17.5), [2, 124, 125, 200]);
+});
+
+test("dbzToRGBA: smooth=false hard transition - snaps to the lower stop until the next threshold", () => {
+  assert.deepEqual(dbzToRGBA(17.5, undefined, false), [4, 0, 243, 200]); // still 15's color
+  assert.deepEqual(dbzToRGBA(19.9, undefined, false), [4, 0, 243, 200]); // still 15's color
+  assert.deepEqual(dbzToRGBA(20, undefined, false), [0, 248, 6, 200]); // jumps to 20's color
 });

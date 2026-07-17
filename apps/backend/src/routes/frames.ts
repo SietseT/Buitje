@@ -19,12 +19,14 @@ export function registerFrameRoutes(app: FastifyInstance, store: FrameStore): vo
 
   app.get("/api/frames/:timestamp(^\\d{12}$).png", async (req, reply) => {
     const { timestamp } = req.params as { timestamp: string };
+    const { smooth } = req.query as { smooth?: string };
     const frame = store.get(timestamp);
     if (!frame) {
       return reply.status(404).send({ error: "Frame not found" });
     }
+    const png = smooth === "false" ? frame.pngHard : frame.pngSmooth;
     reply.header("Content-Type", "image/png");
     reply.header("Cache-Control", "public, max-age=300, immutable");
-    return reply.send(frame.png);
+    return reply.send(png);
   });
 }

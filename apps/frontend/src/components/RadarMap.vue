@@ -5,6 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
 import type { Marker } from "@/composables/useMarkers";
 import { geolocateGranted } from "@/composables/useGeolocatePreference";
+import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
 import { useI18n } from "@/i18n/messages";
 
 const props = defineProps<{
@@ -110,21 +111,32 @@ function padBounds(bounds: RadarBounds, factor: number): maplibregl.LngLatBounds
 // recently requested frame is ever applied.
 let overlayRequestId = 0;
 
+// The backend caches both a smooth and a hard-banded PNG per frame (see
+// colorize.ts's `smooth` param) - which one to request is a per-user
+// localStorage preference (useSmoothColorRamp), not something the backend
+// can bake into frame.url itself. The query string also gives the two
+// variants distinct cache keys, since /api/frames/<timestamp>.png is
+// served with a 5-minute immutable Cache-Control.
+function frameImageUrl(frame: RadarFrame): string {
+  return `${frame.url}?smooth=${smoothColorRamp.value}`;
+}
+
 function applyOverlay(frame: RadarFrame, bounds: RadarBounds) {
   const m = map.value;
   if (!m) return;
 
   const coordinates = coordinatesFromBounds(bounds);
+  const url = frameImageUrl(frame);
   const existing = m.getSource(RADAR_SOURCE_ID) as maplibregl.ImageSource | undefined;
 
   if (existing) {
-    existing.updateImage({ url: frame.url, coordinates });
+    existing.updateImage({ url, coordinates });
     return;
   }
 
   m.addSource(RADAR_SOURCE_ID, {
     type: "image",
-    url: frame.url,
+    url,
     coordinates,
   });
   m.addLayer({
@@ -145,7 +157,7 @@ function updateOverlay() {
   img.onload = () => {
     if (requestId === overlayRequestId) applyOverlay(frame, bounds);
   };
-  img.src = frame.url;
+  img.src = frameImageUrl(frame);
 }
 
 // MapLibre's default teardrop pin looks dated next to the rest of the
@@ -386,7 +398,7 @@ onUnmounted(() => {
   map.value = null;
 });
 
-watch([() => props.frame, () => props.bounds], () => {
+watch([() => props.frame, () => props.bounds, smoothColorRamp], () => {
   if (map.value?.loaded()) updateOverlay();
 });
 

@@ -17,10 +17,13 @@ async function processFile(store: FrameStore, filename: string): Promise<void> {
     const frame = await parseRadarFile(tmpPath, filename);
     const remap = getRemapGrid(frame.geometry);
     setGridBounds(remap.bounds);
-    const png = colorizeFrame(frame.pixels, frame.calibration, remap);
+    const pngSmooth = colorizeFrame(frame.pixels, frame.calibration, remap, undefined, true);
+    const pngHard = colorizeFrame(frame.pixels, frame.calibration, remap, undefined, false);
 
-    store.put({ timestamp: frame.timestamp, png });
-    console.log(`[poller] processed ${filename} (${png.length} bytes)`);
+    store.put({ timestamp: frame.timestamp, pngSmooth, pngHard });
+    console.log(
+      `[poller] processed ${filename} (${pngSmooth.length + pngHard.length} bytes)`,
+    );
   } finally {
     await rm(tmpPath, { force: true });
   }

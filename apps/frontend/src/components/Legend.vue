@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { useI18n } from "@/i18n/messages";
+import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
 
 const { t } = useI18n();
 
@@ -23,21 +25,39 @@ const STOPS = [
   { dbz: 75, r: 252, g: 252, b: 252, a: 255 },
 ] as const;
 
-// The first two stops (0 and 7 dBZ) are fully transparent - below the
-// visible-rain floor, nothing is drawn on the map there. Including them in
-// the gradient renders as solid white (the legend pill's own background
-// showing through), which reads as "white = light rain" even though white
-// is never actually shown on the map. Only render the stops that are
-// actually visible, so the bar starts at the palest color that really
-// appears.
+// Below the visible-rain floor nothing is drawn on the map, so a zero-alpha
+// stop would render as solid white (the legend pill's own background
+// showing through) and read as "white = light rain" even though white is
+// never actually shown on the map. Only render stops that are actually
+// visible (a > 0), so the bar starts at the palest color that really
+// appears. (Currently a no-op since every stop below has a > 0, but kept as
+// a guard in case a fully-transparent floor stop is reintroduced.)
 const VISIBLE_STOPS = STOPS.filter((s) => s.a > 0);
 const minDbz = VISIBLE_STOPS[0].dbz;
 const maxDbz = VISIBLE_STOPS[VISIBLE_STOPS.length - 1].dbz;
 
-const gradient = `linear-gradient(to right, ${VISIBLE_STOPS.map(
-  (s) =>
-    `rgba(${s.r}, ${s.g}, ${s.b}, ${(s.a / 255).toFixed(2)}) ${(((s.dbz - minDbz) / (maxDbz - minDbz)) * 100).toFixed(1)}%`,
-).join(", ")})`;
+const positions = VISIBLE_STOPS.map((s) => ((s.dbz - minDbz) / (maxDbz - minDbz)) * 100);
+
+// Mirrors whichever transition mode the user has chosen (useSmoothColorRamp,
+// a localStorage preference also used by RadarMap.vue to pick which cached
+// PNG variant to request). Smooth: one color-stop per position, blending
+// between them as usual. Hard: each color declared twice, once at its
+// band's start % and again at its end % (the next stop's position, or 100%
+// for the last), so the gradient renders as flat plateaus with a sharp jump
+// at each threshold instead of blending.
+const gradient = computed(() => {
+  if (smoothColorRamp.value) {
+    return `linear-gradient(to right, ${VISIBLE_STOPS.map(
+      (s, i) => `rgba(${s.r}, ${s.g}, ${s.b}, ${(s.a / 255).toFixed(2)}) ${positions[i].toFixed(1)}%`,
+    ).join(", ")})`;
+  }
+  return `linear-gradient(to right, ${VISIBLE_STOPS.map((s, i) => {
+    const start = positions[i].toFixed(1);
+    const end = (i < VISIBLE_STOPS.length - 1 ? positions[i + 1] : 100).toFixed(1);
+    const color = `rgba(${s.r}, ${s.g}, ${s.b}, ${(s.a / 255).toFixed(2)})`;
+    return `${color} ${start}%, ${color} ${end}%`;
+  }).join(", ")})`;
+});
 </script>
 
 <template>

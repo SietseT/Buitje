@@ -24,7 +24,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   app.get("/api/admin/colors/default-stops", async () => DEFAULT_STOPS);
 
   app.get("/api/admin/colors/preview", async (req, reply) => {
-    const { stops: stopsParam } = req.query as { stops?: string };
+    const { stops: stopsParam, smooth } = req.query as { stops?: string; smooth?: string };
 
     let stops = DEFAULT_STOPS;
     if (stopsParam) {
@@ -36,7 +36,13 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     }
 
     const frame = await getTunerFrame();
-    const png = colorizeFrame(frame.pixels, frame.calibration, frame.remap, stops);
+    const png = colorizeFrame(
+      frame.pixels,
+      frame.calibration,
+      frame.remap,
+      stops,
+      smooth !== "false",
+    );
     reply.header("Content-Type", "image/png");
     reply.header("Cache-Control", "no-store");
     return reply.send(png);

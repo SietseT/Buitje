@@ -7,7 +7,8 @@ const BOUNDS_FILE = path.join(config.paths.dataDir, "bounds.json");
 
 export interface StoredFrame {
   timestamp: string;
-  png: Buffer;
+  pngSmooth: Buffer;
+  pngHard: Buffer;
 }
 
 export interface FrameStore {

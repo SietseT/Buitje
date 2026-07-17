@@ -3,6 +3,7 @@ import { ref } from "vue";
 import { Menu } from "@lucide/vue";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import LanguageSelector from "@/components/LanguageSelector.vue";
+import ColorRampToggle from "@/components/ColorRampToggle.vue";
 import MarkerPanel from "@/components/MarkerPanel.vue";
 import type { Marker } from "@/composables/useMarkers";
 import { useI18n } from "@/i18n/messages";
@@ -39,28 +40,25 @@ function handleFlyTo(lng: number, lat: number) {
 <template>
   <Popover v-model:open="open">
     <PopoverTrigger as-child>
-      <button
-        type="button"
+      <button type="button"
         class="flex items-center justify-center rounded-xl bg-white/90 p-3 text-foreground shadow-lg backdrop-blur hover:bg-white dark:bg-neutral-900/90 dark:hover:bg-neutral-900"
-        :aria-label="t('menu.openLabel')"
-      >
+        :aria-label="t('menu.openLabel')">
         <Menu class="size-4" />
       </button>
     </PopoverTrigger>
 
-    <PopoverContent side="bottom" align="start" class="w-64">
+    <PopoverContent side="bottom" align="start" class="w-72">
       <div class="mb-2 flex items-center gap-2 border-b border-border pb-2">
         <img src="/favicon.svg" alt="" class="size-4" />
         <span class="text-sm font-semibold">Buitje</span>
       </div>
       <LanguageSelector />
+      <div class="mt-2">
+        <ColorRampToggle />
+      </div>
       <div class="mt-2 border-t border-border pt-2">
-        <MarkerPanel
-          :markers="markers"
-          @add="handleAdd"
-          @delete-marker="(id) => emit('deleteMarker', id)"
-          @fly-to="handleFlyTo"
-        />
+        <MarkerPanel :markers="markers" @add="handleAdd" @delete-marker="(id) => emit('deleteMarker', id)"
+          @fly-to="handleFlyTo" />
       </div>
     </PopoverContent>
   </Popover>

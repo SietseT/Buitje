@@ -9,7 +9,9 @@
       "Read(//tmp/**)",
       "Bash(ps -p 40199 -o pid,ppid,etime,command)",
       "Bash(kill 40199)",
-      "Bash(ps -p 20977 -o pid,ppid,etime,command)"
+      "Bash(ps -p 20977 -o pid,ppid,etime,command)",
+      "Bash(pnpm build *)",
+      "Bash(pnpm run *)"
     ]
   }
 }

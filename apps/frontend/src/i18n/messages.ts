@@ -5,6 +5,10 @@ const messages = {
     "legend.title": "Neerslagintensiteit",
     "legend.light": "Licht",
     "legend.heavy": "Zwaar",
+    "colorRamp.label": "Vloeiende beelden",
+    "colorRamp.smooth": "aan",
+    "colorRamp.hard": "uit",
+    "settings.language": "Taal",
     "menu.openLabel": "Menu",
     "markers.add": "Markering toevoegen",
     "markers.empty": "Nog geen markeringen",
@@ -23,6 +27,10 @@ const messages = {
     "legend.title": "Rain intensity",
     "legend.light": "Light",
     "legend.heavy": "Heavy",
+    "colorRamp.label": "Radar smoothing",
+    "colorRamp.smooth": "on",
+    "colorRamp.hard": "off",
+    "settings.language": "Language",
     "menu.openLabel": "Menu",
     "markers.add": "Add marker",
     "markers.empty": "No markers yet",
@@ -42,7 +50,10 @@ const messages = {
 type MessageKey = keyof (typeof messages)["en"];
 
 export function useI18n() {
-  function t(key: MessageKey, params?: Record<string, string | number>): string {
+  function t(
+    key: MessageKey,
+    params?: Record<string, string | number>,
+  ): string {
     const template = messages[locale.value][key];
     if (!params) return template;
     return template.replace(/\{(\w+)\}/g, (match, name) =>

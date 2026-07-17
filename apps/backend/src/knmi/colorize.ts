@@ -11,12 +11,13 @@ export interface ColorStop {
 }
 
 // Standard-ish reflectivity color ramp: transparent below the visible-rain
-// floor, then light blue -> darker blue -> yellow -> orange -> red -> magenta
-// with alpha ramping in over the first few stops so light drizzle fades in
-// softly. No green step - the blue deepens right up until it jumps to yellow.
-// Yellow (medium/heavy rain) only kicks in at 45 dBZ - moved up from 35 so
-// the blue band covers light-to-moderate rain, with orange/red/purple
-// compressed proportionally above it to still reach the same 65 dBZ ceiling.
+// floor, then light blue -> darker blue -> yellow -> orange -> red -> magenta,
+// rendered as hard bands (see dbzToRGBA) rather than a blended gradient - each
+// stop's RGBA holds flat until the next 5 dBZ threshold is reached. No green
+// step - the blue deepens right up until it jumps to yellow. Yellow
+// (medium/heavy rain) only kicks in at 45 dBZ - moved up from 35 so the blue
+// band covers light-to-moderate rain, with orange/red/purple compressed
+// proportionally above it to still reach the same 65 dBZ ceiling.
 export const DEFAULT_STOPS: ColorStop[] = [
   { dbz: 5, r: 6, g: 232, b: 228, a: 200 },
   { dbz: 10, r: 9, g: 158, b: 242, a: 200 },
@@ -38,25 +39,38 @@ export const DEFAULT_STOPS: ColorStop[] = [
 export function dbzToRGBA(
   dbz: number,
   stops: ColorStop[] = DEFAULT_STOPS,
+  smooth = true,
 ): [number, number, number, number] {
   if (dbz <= stops[0].dbz) return [stops[0].r, stops[0].g, stops[0].b, 0];
   const last = stops[stops.length - 1];
   if (dbz >= last.dbz) return [last.r, last.g, last.b, last.a];
 
-  for (let i = 0; i < stops.length - 1; i++) {
-    const s0 = stops[i];
-    const s1 = stops[i + 1];
-    if (dbz >= s0.dbz && dbz <= s1.dbz) {
-      const t = (dbz - s0.dbz) / (s1.dbz - s0.dbz);
-      return [
-        Math.round(s0.r + (s1.r - s0.r) * t),
-        Math.round(s0.g + (s1.g - s0.g) * t),
-        Math.round(s0.b + (s1.b - s0.b) * t),
-        Math.round(s0.a + (s1.a - s0.a) * t),
-      ];
+  if (smooth) {
+    for (let i = 0; i < stops.length - 1; i++) {
+      const s0 = stops[i];
+      const s1 = stops[i + 1];
+      if (dbz >= s0.dbz && dbz <= s1.dbz) {
+        const t = (dbz - s0.dbz) / (s1.dbz - s0.dbz);
+        return [
+          Math.round(s0.r + (s1.r - s0.r) * t),
+          Math.round(s0.g + (s1.g - s0.g) * t),
+          Math.round(s0.b + (s1.b - s0.b) * t),
+          Math.round(s0.a + (s1.a - s0.a) * t),
+        ];
+      }
+    }
+    return [last.r, last.g, last.b, last.a];
+  }
+
+  // Hard transition: use the highest stop whose threshold has been reached,
+  // verbatim - no blending between adjacent stops' colors.
+  for (let i = stops.length - 1; i >= 0; i--) {
+    if (dbz >= stops[i].dbz) {
+      const s = stops[i];
+      return [s.r, s.g, s.b, s.a];
     }
   }
-  return [last.r, last.g, last.b, last.a];
+  return [stops[0].r, stops[0].g, stops[0].b, stops[0].a];
 }
 
 export function colorizeFrame(
@@ -64,6 +78,7 @@ export function colorizeFrame(
   calibration: RadarCalibration,
   remap: RemapGrid,
   stops: ColorStop[] = DEFAULT_STOPS,
+  smooth = true,
 ): Buffer {
   const { width, height, sourceIndex } = remap;
   const png = new PNG({ width, height });
@@ -84,7 +99,7 @@ export function colorizeFrame(
     }
 
     const dbz = calibration.a * pv + calibration.b;
-    const [r, g, b, a] = dbzToRGBA(dbz, stops);
+    const [r, g, b, a] = dbzToRGBA(dbz, stops, smooth);
     png.data[outOffset] = r;
     png.data[outOffset + 1] = g;
     png.data[outOffset + 2] = b;
