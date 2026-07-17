@@ -11,6 +11,12 @@ html,
 body,
 #app {
   height: 100%;
+  /* 100% resolves against mobile Safari/Chrome's largest possible viewport
+     (as if the address bar were hidden), leaving invisible space below the
+     actually-visible screen that bottom-anchored elements measure against.
+     100dvh tracks the real visible viewport as browser chrome shows/hides;
+     browsers without dvh support ignore this line and keep the 100% above. */
+  height: 100dvh;
   margin: 0;
 }
 
