@@ -3,7 +3,11 @@ import type { FrameStore } from "../cache/frameStore.js";
 import { gridBounds } from "../cache/frameStore.js";
 
 export function registerFrameRoutes(app: FastifyInstance, store: FrameStore): void {
-  app.get("/api/frames", async () => {
+  app.get("/api/frames", async (_req, reply) => {
+    // Polled every 60s (useRadarFrames.ts); a short max-age just dedupes
+    // near-simultaneous fetches (multiple tabs, remounts) without risking a
+    // newly-arrived frame being hidden behind a stale cached response.
+    reply.header("Cache-Control", "public, max-age=30");
     return store.list().map(({ timestamp }) => ({
       timestamp,
       url: `/api/frames/${timestamp}.png`,
@@ -14,6 +18,8 @@ export function registerFrameRoutes(app: FastifyInstance, store: FrameStore): vo
     if (!gridBounds) {
       return reply.status(503).send({ error: "No frames processed yet" });
     }
+    // Fixed KNMI grid geometry, fetched once per session — safe to cache long.
+    reply.header("Cache-Control", "public, max-age=86400");
     return gridBounds;
   });
 

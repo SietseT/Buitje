@@ -34,12 +34,23 @@ if (process.env.NODE_ENV !== "production") {
 if (fs.existsSync(config.paths.frontendDist)) {
   app.register(fastifyStatic, {
     root: config.paths.frontendDist,
+    // Vite hashes filenames under assets/, so those can be cached forever;
+    // everything else (index.html, favicon.svg, ...) must revalidate on
+    // every request or clients get stuck on a stale build after a deploy.
+    setHeaders: (res, filePath) => {
+      if (/[\\/]assets[\\/]/.test(filePath)) {
+        res.header("Cache-Control", "public, max-age=31536000, immutable");
+      } else {
+        res.header("Cache-Control", "no-cache");
+      }
+    },
   });
   app.setNotFoundHandler((req, reply) => {
     if (req.raw.url?.startsWith("/api")) {
       reply.status(404).send({ error: "Not found" });
       return;
     }
+    reply.header("Cache-Control", "no-cache");
     reply.sendFile("index.html");
   });
 }
