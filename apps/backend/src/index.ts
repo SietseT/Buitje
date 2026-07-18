@@ -4,15 +4,21 @@ import fs from "node:fs";
 import { config } from "./config.js";
 import { createDiskFrameStore } from "./cache/diskFrameStore.js";
 import { loadGridBounds } from "./cache/frameStore.js";
+import { createLightningStore } from "./cache/lightningStore.js";
 import { startPoller } from "./knmi/poller.js";
+import { startLightningRelay } from "./lightning/relay.js";
 import { registerFrameRoutes } from "./routes/frames.js";
+import { registerLightningRoutes } from "./routes/lightning.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 
 const app = Fastify({ logger: true });
 
 // Crash loudly and let Docker's `restart: unless-stopped` bring the process
 // back up cleanly, rather than continuing in an unknown state or exiting
-// with no explanation in the logs.
+// with no explanation in the logs. The lightning relay (lightning/client.ts)
+// is deliberately exempt from this - it catches its own WebSocket errors and
+// reconnects internally, since a flaky external stream going down is not a
+// reason to kill the whole radar service.
 process.on("unhandledRejection", (reason) => {
   app.log.error({ reason }, "[fatal] unhandled promise rejection");
   process.exit(1);
@@ -24,8 +30,10 @@ process.on("uncaughtException", (err) => {
 
 loadGridBounds();
 const store = createDiskFrameStore(config.cache.maxFrames, config.paths.framesDir);
+const lightningStore = createLightningStore(config.lightning.retentionMs, config.lightning.maxStrikes);
 
 registerFrameRoutes(app, store);
+registerLightningRoutes(app, lightningStore);
 
 if (process.env.NODE_ENV !== "production") {
   registerAdminRoutes(app);
@@ -56,6 +64,7 @@ if (fs.existsSync(config.paths.frontendDist)) {
 }
 
 startPoller(store);
+startLightningRelay(lightningStore);
 
 app
   .listen({ port: config.server.port, host: config.server.host })
