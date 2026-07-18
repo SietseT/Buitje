@@ -1,0 +1,14 @@
+<!-- Unused favicon concept ("Outline" from the cloud/drop round of design exploration).
+     Kept for reference only -- not wired up anywhere (apps/frontend/public/favicon.svg
+     currently uses the "Cloud & Rain" concept instead). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="17" y1="18.5" x2="17" y2="27.3">
+      <stop offset="0%" stop-color="#06E8E4"/>
+      <stop offset="100%" stop-color="#099EF2"/>
+    </linearGradient>
+  </defs>
+  <path fill="none" stroke="#8fa4b8" stroke-width="1.7" stroke-linejoin="round"
+    d="M10.5 20.5 a5.5 5.5 0 0 1 0-11 c0.9 0 1.75 0.18 2.52 0.5 A7 7 0 0 1 26.9 13.2 A5 5 0 0 1 26 20.5 Z"/>
+  <path d="M17 18.5 C15.2 21.16 13.4 23.06 13.4 24.4 A3.6 3.6 0 1 0 20.6 24.4 C20.6 23.06 18.8 21.16 17 18.5 Z" fill="url(#g)"/>
+</svg>

@@ -18,7 +18,9 @@
       "Bash(pnpm --filter backend build)",
       "Bash(pnpm --filter backend test)",
       "Bash(pnpm --filter frontend build)",
-      "Bash(npm view *)"
+      "Bash(npm view *)",
+      "Skill(artifact-design)",
+      "Skill(artifact-design:*)"
     ]
   }
 }
