@@ -9,7 +9,11 @@ export interface Bounds {
 }
 
 export interface RemapGrid {
-  /** target grid dimensions (regular WGS84 lon/lat grid) */
+  /**
+   * target grid dimensions. Columns are linear in longitude; rows are linear
+   * in Web Mercator y (see `latAtRowFraction`), because that is the space
+   * MapLibre interpolates an image source in.
+   */
   width: number;
   height: number;
   bounds: Bounds;
@@ -63,9 +67,39 @@ export function sourceRowCol(
   };
 }
 
+const DEG = Math.PI / 180;
+
+/** Web Mercator northing for a latitude, in radians (the usual ln(tan(...))). */
+function mercatorY(latDeg: number): number {
+  return Math.log(Math.tan(Math.PI / 4 + (latDeg * DEG) / 2));
+}
+
+function latFromMercatorY(y: number): number {
+  return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) / DEG;
+}
+
 /**
- * Builds (and caches) a nearest-neighbor remap from a regular target WGS84
- * lon/lat grid back to the source radar grid's pixel indices.
+ * Latitude of target row `fraction` (0 = top, 1 = bottom) of the output image.
+ *
+ * NOT a linear lat interpolation between north and south. The frontend hands
+ * the PNG to MapLibre as an `image` source pinned by its four corners, and
+ * MapLibre stretches it linearly in *Web Mercator* space, not in lat/lon. An
+ * equirectangular (linear-in-latitude) image therefore gets drawn with its
+ * corners right but everything in between displaced towards the pole - for
+ * this grid, up to ~16 km too far north around the middle of the image, i.e.
+ * squarely over the Netherlands, with longitudes unaffected (Mercator x IS
+ * linear in longitude). Spacing the rows evenly in Mercator y instead makes
+ * the image match what MapLibre draws.
+ */
+export function latAtRowFraction(fraction: number, bounds: Bounds): number {
+  const yNorth = mercatorY(bounds.north);
+  const ySouth = mercatorY(bounds.south);
+  return latFromMercatorY(yNorth - fraction * (yNorth - ySouth));
+}
+
+/**
+ * Builds (and caches) a nearest-neighbor remap from the target image grid
+ * back to the source radar grid's pixel indices.
  */
 export function getRemapGrid(geo: RadarGeometry): RemapGrid {
   const signature = signatureOf(geo);
@@ -80,7 +114,7 @@ export function getRemapGrid(geo: RadarGeometry): RemapGrid {
 
   const sourceIndex = new Int32Array(width * height);
   for (let row = 0; row < height; row++) {
-    const lat = bounds.north - (row / (height - 1)) * (bounds.north - bounds.south);
+    const lat = latAtRowFraction(row / (height - 1), bounds);
     for (let col = 0; col < width; col++) {
       const lon = bounds.west + (col / (width - 1)) * (bounds.east - bounds.west);
       const [x, y] = transformer.forward([lon, lat]);
