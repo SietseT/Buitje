@@ -1,5 +1,17 @@
 import { config } from "../config.js";
 
+/**
+ * Subscription message the relays expect after connect. Nothing is streamed
+ * until it's sent.
+ *
+ * Sending anything else - notably `{"time":0}`, which other Blitzortung
+ * clients use - is NOT an error: the socket opens, stays open, and simply
+ * never delivers a message. So a wrong handshake looks exactly like a quiet
+ * sky rather than like a failure, which is why the periodic "kept N/M" line
+ * in relay.ts fires unconditionally.
+ */
+const HANDSHAKE = '{"a":111}';
+
 function pickUrl(): string {
   const urls = config.lightning.wsUrls;
   return urls[Math.floor(Math.random() * urls.length)];
@@ -35,7 +47,8 @@ export function connectLightningStream(onRawMessage: (data: string) => void): { 
 
     ws.addEventListener("open", () => {
       reconnectDelayMs = config.lightning.reconnectBaseDelayMs;
-      ws?.send('{"time":0}');
+      console.log(`[lightning] connected to ${url}`);
+      ws?.send(HANDSHAKE);
     });
 
     ws.addEventListener("message", (event) => {
@@ -48,11 +61,19 @@ export function connectLightningStream(onRawMessage: (data: string) => void): { 
     });
 
     ws.addEventListener("error", () => {
-      // The close event fires right after and triggers the actual
-      // reconnect; nothing to do here beyond not crashing.
+      // The close event fires right after and triggers the actual reconnect,
+      // so there's nothing to do here beyond logging it - an unreachable or
+      // retired relay host is otherwise completely invisible.
+      console.warn(`[lightning] connection error on ${url}`);
     });
 
-    ws.addEventListener("close", () => {
+    ws.addEventListener("close", (event) => {
+      if (!closed) {
+        console.warn(
+          `[lightning] disconnected from ${url} (code ${event.code}), ` +
+            `reconnecting in ${Math.round(reconnectDelayMs / 1000)}s`,
+        );
+      }
       scheduleReconnect();
     });
   }

@@ -8,7 +8,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "tsx --test src/knmi/reproject.test.ts src/knmi/colorize.test.ts src/lightning/lzw.test.ts src/lightning/parseStrike.test.ts src/cache/lightningStore.test.ts",
+    "test": "tsx --test src/knmi/reproject.test.ts src/knmi/colorize.test.ts src/lightning/lzw.test.ts src/lightning/parseStrike.test.ts src/lightning/relay.test.ts src/cache/lightningStore.test.ts src/cache/diskLightningStore.test.ts",
     "fetch-tuner-frame": "tsx scripts/fetch-tuner-frame.ts"
   },
   "dependencies": {

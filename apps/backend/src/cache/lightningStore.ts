@@ -4,6 +4,13 @@ export interface LightningStore {
   add(strike: Strike): void;
   /** Strikes with endMs - windowMs < timeMs <= endMs. */
   inWindow(endMs: number, windowMs: number): Strike[];
+  /**
+   * Every retained strike, oldest first. Exists so diskLightningStore.ts can
+   * snapshot the buffer without having to guess a window wide enough to cover
+   * it (a strike with a slightly-future timeMs from a skewed detector clock
+   * would fall outside any inWindow(now, retentionMs) call).
+   */
+  all(): Strike[];
   size(): number;
 }
 
@@ -35,6 +42,9 @@ export function createLightningStore(
     inWindow(endMs, windowMs) {
       const startMs = endMs - windowMs;
       return strikes.filter((s) => s.timeMs > startMs && s.timeMs <= endMs);
+    },
+    all() {
+      return strikes.slice();
     },
     size() {
       return strikes.length;

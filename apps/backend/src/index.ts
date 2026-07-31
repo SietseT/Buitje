@@ -4,7 +4,7 @@ import fs from "node:fs";
 import { config } from "./config.js";
 import { createDiskFrameStore } from "./cache/diskFrameStore.js";
 import { loadGridBounds } from "./cache/frameStore.js";
-import { createLightningStore } from "./cache/lightningStore.js";
+import { createDiskLightningStore } from "./cache/diskLightningStore.js";
 import { startPoller } from "./knmi/poller.js";
 import { startLightningRelay } from "./lightning/relay.js";
 import { registerFrameRoutes } from "./routes/frames.js";
@@ -19,18 +19,49 @@ const app = Fastify({ logger: true });
 // is deliberately exempt from this - it catches its own WebSocket errors and
 // reconnects internally, since a flaky external stream going down is not a
 // reason to kill the whole radar service.
+// Strikes can't be re-fetched after the fact (Blitzortung is a live-only
+// feed), so the buffer gets one last snapshot on the way out - on the fatal
+// paths too, since those exit deliberately rather than unexpectedly. Wrapped
+// because a failed flush must never mask the original error, and because an
+// exception thrown during module init would reach here before lightningStore
+// is assigned.
+function flushLightning(): void {
+  try {
+    lightningStore.flush();
+  } catch (err) {
+    app.log.warn({ err }, "[lightning] final flush failed");
+  }
+}
+
 process.on("unhandledRejection", (reason) => {
   app.log.error({ reason }, "[fatal] unhandled promise rejection");
+  flushLightning();
   process.exit(1);
 });
 process.on("uncaughtException", (err) => {
   app.log.error({ err }, "[fatal] uncaught exception");
+  flushLightning();
   process.exit(1);
 });
 
+// SIGTERM covers `docker stop` and tsx watch's reload-on-save; SIGINT covers
+// Ctrl-C in dev. Both are the common case in practice, so this is what keeps
+// the timeline populated across a restart.
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    flushLightning();
+    app.close().finally(() => process.exit(0));
+  });
+}
+
 loadGridBounds();
 const store = createDiskFrameStore(config.cache.maxFrames, config.paths.framesDir);
-const lightningStore = createLightningStore(config.lightning.retentionMs, config.lightning.maxStrikes);
+const lightningStore = createDiskLightningStore(
+  config.lightning.retentionMs,
+  config.lightning.maxStrikes,
+  config.paths.lightningFile,
+  config.lightning.flushIntervalMs,
+);
 
 registerFrameRoutes(app, store);
 registerLightningRoutes(app, lightningStore);
