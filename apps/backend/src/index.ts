@@ -1,7 +1,7 @@
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import fs from "node:fs";
-import { config } from "./config.js";
+import { config, assertRequiredConfig } from "./config.js";
 import { createDiskFrameStore } from "./cache/diskFrameStore.js";
 import { loadGridBounds } from "./cache/frameStore.js";
 import { createDiskLightningStore } from "./cache/diskLightningStore.js";
@@ -10,6 +10,10 @@ import { startLightningRelay } from "./lightning/relay.js";
 import { registerFrameRoutes } from "./routes/frames.js";
 import { registerLightningRoutes } from "./routes/lightning.js";
 import { registerAdminRoutes } from "./routes/admin.js";
+
+// Before anything else: no KNMI key means every poll would 401, so fail here
+// with an actionable message rather than in a retry loop later.
+assertRequiredConfig();
 
 const app = Fastify({ logger: true });
 

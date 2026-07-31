@@ -4,21 +4,11 @@ import "dotenv/config";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-if (!process.env.KNMI_API_KEY) {
-  throw new Error(
-    "KNMI_API_KEY is not set. Register a free key at " +
-      "https://developer.dataplatform.knmi.nl (or find the shared anonymous " +
-      "key in the Open Data API docs at " +
-      "https://developer.dataplatform.knmi.nl/open-data-api) and set it in " +
-      "apps/backend/.env as KNMI_API_KEY=...",
-  );
-}
-
 const maxFrames = Number(process.env.MAX_FRAMES ?? 24); // ~2 hours at 5 min/frame
 
 export const config = {
   knmi: {
-    apiKey: process.env.KNMI_API_KEY,
+    apiKey: process.env.KNMI_API_KEY ?? "",
     apiBase: "https://api.dataplatform.knmi.nl/open-data/v1",
     datasetName: "radar_reflectivity_composites",
     datasetVersion: "2.0",
@@ -82,3 +72,19 @@ export const config = {
     frontendDist: path.join(here, "..", "..", "frontend", "dist"),
   },
 };
+
+// Deliberately NOT a module-level check: importing this module must stay
+// side-effect free so tests (and CI, which has no .env) can read the pure
+// config values without a KNMI key. index.ts calls this before doing
+// anything, so the backend itself still fails fast with a useful message.
+export function assertRequiredConfig(): void {
+  if (!config.knmi.apiKey) {
+    throw new Error(
+      "KNMI_API_KEY is not set. Register a free key at " +
+        "https://developer.dataplatform.knmi.nl (or find the shared anonymous " +
+        "key in the Open Data API docs at " +
+        "https://developer.dataplatform.knmi.nl/open-data-api) and set it in " +
+        "apps/backend/.env as KNMI_API_KEY=...",
+    );
+  }
+}
