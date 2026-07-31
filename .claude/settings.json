@@ -20,7 +20,16 @@
       "Bash(pnpm --filter frontend build)",
       "Bash(npm view *)",
       "Skill(artifact-design)",
-      "Skill(artifact-design:*)"
+      "Skill(artifact-design:*)",
+      "Bash(node -e \"console.log\\(typeof WebSocket\\)\")",
+      "Bash(pnpm dev *)",
+      "Bash(echo \"started with pid $!\")",
+      "Bash(lsof -i :3000 -sTCP:LISTEN)",
+      "Bash(curl -sS -D - http://localhost:3000/api/lightning/202607180955)",
+      "Bash(curl -sS -o /dev/null -w \"status: %{http_code}\\\\n\" http://localhost:3000/api/lightning/notatimestamp)",
+      "Bash(curl -s -m 5 http://localhost:3000/api/lightning/__TRACKED_VAR__)",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -m 5 http://localhost:3000/api/frames)"
     ]
   }
 }

@@ -4,6 +4,7 @@ import { Menu } from "@lucide/vue";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import LanguageSelector from "@/components/LanguageSelector.vue";
 import ColorRampToggle from "@/components/ColorRampToggle.vue";
+import LightningToggle from "@/components/LightningToggle.vue";
 import MarkerPanel from "@/components/MarkerPanel.vue";
 import type { Marker } from "@/composables/useMarkers";
 import { useI18n } from "@/i18n/messages";
@@ -55,6 +56,9 @@ function handleFlyTo(lng: number, lat: number) {
       <LanguageSelector />
       <div class="mt-2">
         <ColorRampToggle />
+      </div>
+      <div class="mt-2">
+        <LightningToggle />
       </div>
       <div class="mt-2 border-t border-border pt-2">
         <MarkerPanel :markers="markers" @add="handleAdd" @delete-marker="(id) => emit('deleteMarker', id)"

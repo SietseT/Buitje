@@ -6,6 +6,7 @@ import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
 import type { Marker } from "@/composables/useMarkers";
 import { geolocateGranted } from "@/composables/useGeolocatePreference";
 import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
+import { showLightning } from "@/composables/useLightningToggle";
 import { useI18n } from "@/i18n/messages";
 
 const props = defineProps<{
@@ -31,6 +32,8 @@ let resizeObserver: ResizeObserver | null = null;
 
 const RADAR_SOURCE_ID = "radar-frame";
 const RADAR_LAYER_ID = "radar-frame-layer";
+const LIGHTNING_SOURCE_ID = "lightning-strikes";
+const LIGHTNING_LAYER_ID = "lightning-strikes-layer";
 
 // Netherlands' own bounding box (roughly 3.2-7.35°E, 50.72-53.68°N),
 // independent of the async /api/frames/bounds fetch (which resolves after
@@ -158,6 +161,96 @@ function updateOverlay() {
     if (requestId === overlayRequestId) applyOverlay(frame, bounds);
   };
   img.src = frameImageUrl(frame);
+}
+
+interface LightningStrike {
+  lat: number;
+  lon: number;
+  timeMs: number;
+  polarity: number | null;
+}
+
+function strikesToGeoJSON(strikes: LightningStrike[]): GeoJSON.FeatureCollection<GeoJSON.Point> {
+  return {
+    type: "FeatureCollection",
+    features: strikes.map((s) => ({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [s.lon, s.lat] },
+      properties: {},
+    })),
+  };
+}
+
+function addLightningSource(data: GeoJSON.FeatureCollection<GeoJSON.Point>) {
+  const m = map.value;
+  if (!m) return;
+  m.addSource(LIGHTNING_SOURCE_ID, {
+    type: "geojson",
+    data,
+    // Mandatory per Blitzortung's terms - tying it to the source means it
+    // only ever shows up in the AttributionControl while lightning data is
+    // actually being displayed (source only exists while showLightning is
+    // true, see removeLightningLayer()).
+    attribution: "Lightning data by Blitzortung.org and contributors",
+  });
+  m.addLayer({
+    id: LIGHTNING_LAYER_ID,
+    type: "circle",
+    source: LIGHTNING_SOURCE_ID,
+    paint: {
+      "circle-radius": 5,
+      "circle-color": "#facc15",
+      "circle-stroke-color": "#78350f",
+      "circle-stroke-width": 1,
+      "circle-opacity": 0.85,
+    },
+  });
+}
+
+function removeLightningLayer() {
+  const m = map.value;
+  if (!m) return;
+  if (m.getLayer(LIGHTNING_LAYER_ID)) m.removeLayer(LIGHTNING_LAYER_ID);
+  if (m.getSource(LIGHTNING_SOURCE_ID)) m.removeSource(LIGHTNING_SOURCE_ID);
+}
+
+// Lightning strikes are fetched per-frame (bucketed server-side into the
+// same 5-minute window as the radar composite), not on an independent poll
+// timer - this is what keeps the two layers moving together as the
+// Timeline is scrubbed or played back. Guarded by its own request id
+// (separate from overlayRequestId, since the radar PNG and lightning
+// bucket are independent fetches that shouldn't gate each other).
+let lightningRequestId = 0;
+
+async function updateLightning() {
+  if (!map.value) return;
+
+  if (!showLightning.value || !props.frame) {
+    removeLightningLayer();
+    return;
+  }
+
+  const frame = props.frame;
+  const requestId = ++lightningRequestId;
+  try {
+    const res = await fetch(`/api/lightning/${frame.timestamp}`);
+    if (!res.ok) throw new Error(`status ${res.status}`);
+    const { strikes } = (await res.json()) as { strikes: LightningStrike[] };
+    if (requestId !== lightningRequestId) return; // superseded by a newer request
+
+    const m = map.value;
+    if (!m) return;
+    const data = strikesToGeoJSON(strikes);
+    const existing = m.getSource(LIGHTNING_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    if (existing) {
+      existing.setData(data);
+    } else {
+      addLightningSource(data);
+    }
+  } catch {
+    // Transient failure - left as a no-op; the next frame change or toggle
+    // flip naturally retries, no dedicated reconnect loop needed here.
+  }
 }
 
 // MapLibre's default teardrop pin looks dated next to the rest of the
@@ -370,6 +463,7 @@ onMounted(() => {
   map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
   map.value.on("load", () => {
     updateOverlay();
+    updateLightning();
     applyLocalLabelLanguage();
     syncMarkers();
     // Location was previously granted - re-trigger it automatically so the
@@ -398,8 +492,11 @@ onUnmounted(() => {
   map.value = null;
 });
 
-watch([() => props.frame, () => props.bounds, smoothColorRamp], () => {
-  if (map.value?.loaded()) updateOverlay();
+watch([() => props.frame, () => props.bounds, smoothColorRamp, showLightning], () => {
+  if (map.value?.loaded()) {
+    updateOverlay();
+    updateLightning();
+  }
 });
 
 // props.bounds is still null when the map is constructed in onMounted (the
