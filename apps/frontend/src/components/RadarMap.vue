@@ -47,10 +47,15 @@ const NETHERLANDS_BOUNDS: maplibregl.LngLatBoundsLike = [
   [7.35, 53.68],
 ];
 
-// OpenFreeMap's Liberty style prefers the English name ("name_en") over the
-// local OSM "name" for every label layer, whenever one exists. We always
-// want local (Dutch) place names on the map, so rewrite that expression on
-// every symbol layer's text-field rather than hardcoding layer ids.
+// OpenFreeMap's styles prefer the English name ("name_en") over the local
+// OSM "name" for every label layer, whenever one exists. We always want
+// local (Dutch) place names on the map, so rewrite that expression on every
+// symbol layer's text-field rather than hardcoding layer ids.
+//
+// Positron buries it deeper than Liberty did - the whole text-field is
+// `["case", ["has","name:nonlatin"], ..., ["coalesce", ["get","name_en"],
+// ["get","name"]]]` - which is exactly why this recurses through the
+// expression tree instead of pattern-matching a known top-level shape.
 function withLocalNames(expr: unknown): unknown {
   if (Array.isArray(expr)) {
     if (expr[0] === "get" && expr[1] === "name_en") return ["get", "name"];
@@ -69,11 +74,15 @@ function applyLocalLabelLanguage() {
   }
 }
 
-// OpenFreeMap "Liberty" style: a decluttered vector basemap that stays out
-// of the way of the radar overlay, unlike raw OSM Mapnik tiles. Genuinely
-// free, no API key/account/rate limit (unlike CARTO's basemap CDN, which
-// per their own docs requires being a registered "grantee" for free use).
-const style = "https://tiles.openfreemap.org/styles/liberty";
+// OpenFreeMap "Positron" style: a minimal, low-contrast vector basemap that
+// stays out of the way of the radar overlay, unlike raw OSM Mapnik tiles.
+// Chosen over Liberty for its plainer look, which lets the precipitation
+// colours carry the map; it is also a lot lighter (55 layers / 19 symbol
+// layers vs Liberty's ~150 / ~50), and MapLibre repaints every layer on each
+// radar frame swap. Genuinely free, no API key/account/rate limit (unlike
+// CARTO's basemap CDN, which per their own docs requires being a registered
+// "grantee" for free use).
+const style = "https://tiles.openfreemap.org/styles/positron";
 
 function coordinatesFromBounds(bounds: RadarBounds): [
   [number, number],

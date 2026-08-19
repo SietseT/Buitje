@@ -31,7 +31,9 @@
       "Bash(python3 -c ' *)",
       "Bash(curl -s -m 5 http://localhost:3000/api/frames)",
       "Bash(env -u KNMI_API_KEY DOTENV_CONFIG_PATH=/dev/null pnpm test)",
-      "Bash(env -u KNMI_API_KEY DOTENV_CONFIG_PATH=/dev/null npx tsx -e 'import\\(\"./src/index.js\"\\).catch\\(e=>{console.log\\(\"THREW:\", e.message.slice\\(0,60\\)\\); process.exit\\(0\\)}\\)')"
+      "Bash(env -u KNMI_API_KEY DOTENV_CONFIG_PATH=/dev/null npx tsx -e 'import\\(\"./src/index.js\"\\).catch\\(e=>{console.log\\(\"THREW:\", e.message.slice\\(0,60\\)\\); process.exit\\(0\\)}\\)')",
+      "Bash(curl -s https://tiles.openfreemap.org/styles/positron -o positron.json)",
+      "Bash(git --no-pager diff --stat)"
     ]
   }
 }
