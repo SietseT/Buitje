@@ -3,28 +3,18 @@ import { onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
-import type { Marker } from "@/composables/useMarkers";
 import { geolocateGranted } from "@/composables/useGeolocatePreference";
 import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
 import { showLightning } from "@/composables/useLightningToggle";
-import { useI18n } from "@/i18n/messages";
+import { theme } from "@/composables/useTheme";
+import { locating, locationFailed, registerLocateTrigger, requestLocate } from "@/composables/useUserLocation";
+import MapControls from "@/components/MapControls.vue";
+import ThemeToggle from "@/components/ThemeToggle.vue";
 
 const props = defineProps<{
   frame: RadarFrame | undefined;
   bounds: RadarBounds | null;
-  markers: Marker[];
-  placingMarker: boolean;
 }>();
-
-const emit = defineEmits<{
-  placeMarker: [lng: number, lat: number];
-  renameMarker: [id: string, label: string];
-  deleteMarker: [id: string];
-  cancelPlacing: [];
-  geolocateError: [];
-}>();
-
-const { t } = useI18n();
 
 const mapContainer = ref<HTMLDivElement | null>(null);
 const map = shallowRef<maplibregl.Map | null>(null);
@@ -74,6 +64,23 @@ function applyLocalLabelLanguage() {
   }
 }
 
+// OpenFreeMap's "dark" style draws country borders (admin_level 2) at
+// hsl(0,0%,23%) against a background of rgb(12,12,12) - practically
+// invisible, unlike "positron" which draws them at hsl(0,0%,70%) against a
+// near-white background. Width/opacity/blur are otherwise comparable to the
+// light style at the same zoom, so only the color needs boosting. Provincial
+// borders (admin_level 4, "boundary_state") are left as the style drew them -
+// this is specifically about the country outline going missing.
+const DARK_COUNTRY_BORDER_LAYER_IDS = ["boundary_country_z0-4", "boundary_country_z5-"];
+
+function boostDarkCountryBorders() {
+  const m = map.value;
+  if (!m || theme.value !== "dark") return;
+  for (const id of DARK_COUNTRY_BORDER_LAYER_IDS) {
+    if (m.getLayer(id)) m.setPaintProperty(id, "line-color", "hsl(0, 0%, 55%)");
+  }
+}
+
 // OpenFreeMap "Positron" style: a minimal, low-contrast vector basemap that
 // stays out of the way of the radar overlay, unlike raw OSM Mapnik tiles.
 // Chosen over Liberty for its plainer look, which lets the precipitation
@@ -82,7 +89,13 @@ function applyLocalLabelLanguage() {
 // radar frame swap. Genuinely free, no API key/account/rate limit (unlike
 // CARTO's basemap CDN, which per their own docs requires being a registered
 // "grantee" for free use).
-const style = "https://tiles.openfreemap.org/styles/positron";
+//
+// "dark" is OpenFreeMap's own Positron counterpart (47 layers, background
+// rgb(12,12,12)) - staying inside OpenFreeMap rather than reaching for
+// another provider, whose terms would need re-checking (see CLAUDE.md).
+function styleUrlFor(value: "light" | "dark"): string {
+  return `https://tiles.openfreemap.org/styles/${value === "dark" ? "dark" : "positron"}`;
+}
 
 function coordinatesFromBounds(bounds: RadarBounds): [
   [number, number],
@@ -262,186 +275,34 @@ async function updateLightning() {
   }
 }
 
-// MapLibre's default teardrop pin looks dated next to the rest of the
-// app's flat, lucide-icon UI - build the marker element from the same
-// "map-pin" glyph used on the panel button instead, filled in a color
-// distinct from both the radar palette and the GeolocateControl's blue
-// dot. Popup content is built with plain DOM calls, matching this file's
-// existing all-imperative style (no child Vue components get mounted into
-// the map).
-const MARKER_COLOR = "#dc2626";
-
-// Path data from @lucide/vue's "map-pin" icon (24x24 viewBox), kept as a
-// literal so this stays a plain DOM element rather than mounting a Vue
-// component into the map.
-const MARKER_PIN_SVG = `
-  <svg width="30" height="30" viewBox="0 0 24 24" fill="${MARKER_COLOR}" stroke="white" stroke-width="1.25" stroke-linejoin="round" style="filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.4))">
-    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
-    <circle cx="12" cy="10" r="3" fill="white" stroke="none" />
-  </svg>
-`;
-
-function createMarkerElement(): HTMLElement {
-  const el = document.createElement("div");
-  el.className = "cursor-pointer";
-  el.innerHTML = MARKER_PIN_SVG;
-  return el;
-}
-
-interface MarkerInstance {
-  marker: maplibregl.Marker;
-  input: HTMLInputElement;
-}
-
-const markerInstances = new Map<string, MarkerInstance>();
-
-function createPopupContent(id: string, label: string): { element: HTMLElement; input: HTMLInputElement } {
-  const container = document.createElement("div");
-  container.className = "flex items-center gap-1.5";
-
-  const input = document.createElement("input");
-  input.type = "text";
-  input.value = label;
-  input.placeholder = t("markers.namePlaceholder");
-  input.className =
-    "min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none focus:border-ring";
-  input.addEventListener("change", () => {
-    const value = input.value.trim();
-    if (value) emit("renameMarker", id, value);
-  });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") input.blur();
-  });
-
-  const deleteButton = document.createElement("button");
-  deleteButton.type = "button";
-  deleteButton.textContent = t("markers.delete");
-  deleteButton.className =
-    "shrink-0 rounded-md px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10";
-  deleteButton.addEventListener("click", () => emit("deleteMarker", id));
-
-  container.append(input, deleteButton);
-  return { element: container, input };
-}
-
-function syncMarkers() {
-  const m = map.value;
-  if (!m) return;
-
-  const seen = new Set<string>();
-  for (const data of props.markers) {
-    seen.add(data.id);
-    const existing = markerInstances.get(data.id);
-    if (existing) {
-      existing.marker.setLngLat([data.lng, data.lat]);
-      if (document.activeElement !== existing.input) existing.input.value = data.label;
-      continue;
-    }
-
-    const { element, input } = createPopupContent(data.id, data.label);
-    const popup = new maplibregl.Popup({
-      offset: 22,
-      className: "buitje-marker-popup",
-      closeButton: false,
-    }).setDOMContent(element);
-    const marker = new maplibregl.Marker({ element: createMarkerElement(), anchor: "bottom" })
-      .setLngLat([data.lng, data.lat])
-      .setPopup(popup)
-      .addTo(m);
-    markerInstances.set(data.id, { marker, input });
-  }
-
-  for (const [id, { marker }] of markerInstances) {
-    if (!seen.has(id)) {
-      marker.remove();
-      markerInstances.delete(id);
-    }
-  }
-}
-
-// Exposed so the parent can open a freshly-placed marker's popup right away
-// (letting the user rename it immediately) and fly to a marker picked from
-// the saved-markers list, without RadarMap needing to know about either flow.
-function openMarkerPopup(id: string) {
-  const entry = markerInstances.get(id);
-  if (!entry) return;
-  entry.marker.togglePopup();
-  requestAnimationFrame(() => {
-    entry.input.focus();
-    entry.input.select();
-  });
-}
-
-function flyTo(lng: number, lat: number) {
-  const m = map.value;
-  if (!m) return;
-  m.flyTo({ center: [lng, lat], zoom: Math.max(m.getZoom(), 9) });
-}
-
-defineExpose({ openMarkerPopup, flyTo });
-
-// Click-to-place: arming placement mode swaps the cursor to a crosshair and
-// arms a single map click to report the clicked coordinates back up - the
-// parent owns whether we're "placing" (and creates the actual marker), this
-// component only ever reports where the user clicked.
-let placementClickHandler: ((e: maplibregl.MapMouseEvent) => void) | null = null;
-
-function handlePlacementEscape(e: KeyboardEvent) {
-  if (e.key === "Escape") emit("cancelPlacing");
-}
-
-watch(
-  () => props.placingMarker,
-  (placing) => {
-    const m = map.value;
-    if (!m) return;
-
-    if (placementClickHandler) {
-      m.off("click", placementClickHandler);
-      placementClickHandler = null;
-    }
-    window.removeEventListener("keydown", handlePlacementEscape);
-
-    if (placing) {
-      m.getCanvas().style.cursor = "crosshair";
-      placementClickHandler = (e) => emit("placeMarker", e.lngLat.lng, e.lngLat.lat);
-      m.on("click", placementClickHandler);
-      window.addEventListener("keydown", handlePlacementEscape);
-    } else {
-      m.getCanvas().style.cursor = "";
-    }
-  },
-);
-
-watch(() => props.markers, syncMarkers, { deep: true });
-
 onMounted(() => {
   if (!mapContainer.value) return;
   map.value = new maplibregl.Map({
     container: mapContainer.value,
-    style,
+    style: styleUrlFor(theme.value),
     bounds: NETHERLANDS_BOUNDS,
-    // Bottom padding is much larger than the other sides to keep the
-    // Timeline/Legend toolbar (which stacks two pills tall on mobile) from
-    // covering southern Limburg - a uniform padding would either still get
-    // covered there or zoom out further than needed on the other sides.
-    fitBoundsOptions: { padding: { top: 40, bottom: 160, left: 40, right: 40 } },
-    // Default bottom-right attribution wraps to 2 lines on narrow viewports,
-    // spanning nearly the full width and colliding with the bottom
-    // timeline/legend toolbar. Move it to top-right instead, alongside the
-    // zoom control, well clear of every other overlay.
+    // Nothing overlays the map's bottom edge any more (no bottom sheet), so
+    // padding just needs to keep content off the very edge - a small
+    // uniform value at every breakpoint. `top` is bumped a bit to clear the
+    // app-identity pill in the template below.
+    fitBoundsOptions: {
+      padding: { top: 56, bottom: 48, left: 40, right: 40 },
+    },
+    // Rendered by MapControls.vue instead - see the rail in the template.
     attributionControl: false,
   });
-  map.value.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+  // Attribution goes top-left, alongside the app-identity pill (see
+  // style.css for the margin that keeps them from overlapping).
+  map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-left");
 
   // Geolocation is opt-in and permission can be denied - GeolocateControl
   // already handles the browser permission prompt and draws the pulsing
   // location dot itself; we only need to surface denial/failure so the app
-  // can point the user at the manual-marker fallback instead.
+  // can show a banner instead of failing silently.
   const geolocateControl = new maplibregl.GeolocateControl({
     // Without an explicit timeout the Geolocation API defaults to Infinity,
-    // so a stalled location fix would hang forever with no feedback,
-    // defeating the "reject is fine, just add a marker" fallback UX below.
+    // so a stalled location fix would hang forever with no feedback.
     positionOptions: { enableHighAccuracy: false, timeout: 10000 },
     trackUserLocation: true,
     showUserLocation: true,
@@ -452,11 +313,13 @@ onMounted(() => {
   // _updateMarker (which draws the dot + accuracy circle) is separate and
   // unaffected, so neutering this still shows the dot with zero camera
   // movement. This relies on MapLibre's internals and could break on a
-  // future maplibre-gl upgrade - re-check this if the geolocate button
-  // stops behaving after a version bump.
+  // future maplibre-gl upgrade - re-check this if the geolocate button stops
+  // behaving after a version bump.
   geolocateControl._updateCamera = () => {};
   geolocateControl.on("geolocate", () => {
     geolocateGranted.value = true;
+    locating.value = false;
+    locationFailed.value = false;
   });
   geolocateControl.on("error", (error: GeolocationPositionError) => {
     // Only an explicit permission denial should un-remember a prior grant -
@@ -465,22 +328,36 @@ onMounted(() => {
     if (error.code === error.PERMISSION_DENIED) {
       geolocateGranted.value = false;
     }
-    emit("geolocateError");
+    // useUserLocation is the single place that reports this now; the app
+    // shell reads locationFailed and shows a banner.
+    locating.value = false;
+    locationFailed.value = true;
   });
   map.value.addControl(geolocateControl, "top-right");
+  // The rail's own button drives it; the control stays mounted for the
+  // permission prompt and the location dot, and style.css hides its chrome.
+  registerLocateTrigger(() => geolocateControl.trigger());
 
-  map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
-  map.value.on("load", () => {
+  // Fires on the initial load AND after every setStyle, which is exactly
+  // what the radar and lightning layers need: setStyle({diff:false}) drops
+  // every custom source and layer, so they have to be re-added each time.
+  // applyLocalLabelLanguage and boostDarkCountryBorders have to re-run for
+  // the same reason - each swap loads a fresh style with the original,
+  // unpatched paint properties.
+  map.value.on("style.load", () => {
+    applyLocalLabelLanguage();
+    boostDarkCountryBorders();
     updateOverlay();
     updateLightning();
-    applyLocalLabelLanguage();
-    syncMarkers();
+  });
+
+  map.value.on("load", () => {
     // Location was previously granted - re-trigger it automatically so the
     // user's location keeps showing across refreshes instead of requiring
     // them to click the geolocate button again every visit. The browser
     // won't re-prompt since permission is already granted.
     if (geolocateGranted.value) {
-      geolocateControl.trigger();
+      requestLocate();
     }
   });
 
@@ -496,9 +373,17 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
-  window.removeEventListener("keydown", handlePlacementEscape);
+  registerLocateTrigger(null);
   map.value?.remove();
   map.value = null;
+});
+
+// diff:false is deliberate. MapLibre's default style diffing tries to carry
+// state across, and what it preserves between two unrelated styles is not
+// something to rely on; a clean reload means the style.load handler above is
+// always the single place that re-adds the radar and lightning layers.
+watch(theme, (value) => {
+  map.value?.setStyle(styleUrlFor(value), { diff: false });
 });
 
 watch([() => props.frame, () => props.bounds, smoothColorRamp, showLightning], () => {
@@ -522,5 +407,21 @@ watch(
 </script>
 
 <template>
-  <div ref="mapContainer" class="h-full w-full" />
+  <div class="relative h-full w-full">
+    <div ref="mapContainer" class="h-full w-full" />
+
+    <div class="absolute top-3 left-3 z-10 lg:top-4 lg:left-4">
+      <div
+        class="flex items-center gap-2.5 rounded-xl bg-white/90 px-3 py-2 shadow-lg backdrop-blur dark:bg-neutral-900/90"
+      >
+        <img src="/favicon.svg" alt="" class="size-5" />
+        <span class="text-sm font-semibold tracking-tight">Buitje</span>
+        <ThemeToggle />
+      </div>
+    </div>
+
+    <div class="absolute top-3 right-3 z-10 lg:top-4 lg:right-4">
+      <MapControls @locate="requestLocate()" />
+    </div>
+  </div>
 </template>

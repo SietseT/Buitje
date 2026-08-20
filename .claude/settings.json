@@ -33,7 +33,12 @@
       "Bash(env -u KNMI_API_KEY DOTENV_CONFIG_PATH=/dev/null pnpm test)",
       "Bash(env -u KNMI_API_KEY DOTENV_CONFIG_PATH=/dev/null npx tsx -e 'import\\(\"./src/index.js\"\\).catch\\(e=>{console.log\\(\"THREW:\", e.message.slice\\(0,60\\)\\); process.exit\\(0\\)}\\)')",
       "Bash(curl -s https://tiles.openfreemap.org/styles/positron -o positron.json)",
-      "Bash(git --no-pager diff --stat)"
+      "Bash(git --no-pager diff --stat)",
+      "Bash(npx tsx -e ' *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(curl -s -D/tmp/h \"http://localhost:3000/api/point?lat=52.09&lon=5.12\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s \"http://localhost:3000/api/point?lat=52.09&lon=5.12\")"
     ]
   }
 }

@@ -65,9 +65,7 @@ async function runWithConcurrency<T>(
  */
 async function syncRecentFiles(store: FrameStore): Promise<void> {
   const filenames = await fetchRecentFilenames(config.cache.maxFrames);
-  const missing = filenames.filter(
-    (filename) => !store.has(extractTimestampFromFilename(filename)),
-  );
+  const missing = filenames.filter((filename) => !store.has(extractTimestampFromFilename(filename)));
 
   await runWithConcurrency(missing, config.cache.backfillConcurrency, async (filename) => {
     try {

@@ -139,14 +139,19 @@ body,
   }
 }
 
-/* Marker popups: MapLibre's default chrome (square corners, hard drop
-   shadow, big arrow tip) reads dated next to the rest of the app's
-   shadcn-style surfaces - restyle to match PopoverContent instead. Doubled
-   class selector (.maplibregl-popup already carries .buitje-marker-popup)
-   beats the base maplibre-gl.css rules on specificity without !important. */
-.maplibregl-popup.buitje-marker-popup .maplibregl-popup-content {
-  @apply bg-popover text-popover-foreground rounded-lg p-2 shadow-md ring-1 ring-foreground/10;
-}
-.maplibregl-popup.buitje-marker-popup .maplibregl-popup-tip {
+/* MapControls.vue renders the map's own control rail, so MapLibre's
+   geolocate button is hidden - but the control itself stays mounted, because
+   it owns the permission prompt, the pulsing location dot and the accuracy
+   circle. The rail's button calls its .trigger() instead. Hiding the whole
+   ctrl-group (not just the button) avoids leaving an empty white box behind. */
+.maplibregl-ctrl-group:has(.maplibregl-ctrl-geolocate) {
   display: none;
+}
+
+/* RadarMap.vue renders its own app-identity pill (favicon, name, theme
+   toggle) absolutely-positioned over the map's top-left corner, in the same
+   corner MapLibre's own AttributionControl lives in. Push the control's
+   stack down by roughly the pill's height + gap so the two don't overlap. */
+.maplibregl-ctrl-top-left {
+  margin-top: 48px;
 }

@@ -14,10 +14,10 @@ export interface RadarBounds {
 
 const POLL_INTERVAL_MS = 60_000;
 const RECONNECT_INTERVAL_MS = 5_000;
-// Halved from 600 so each speed tier maps to what used to be one tier
-// faster (0.5x now plays at the old 1x rate, 1x at the old 2x rate), with
-// 2x landing at twice the old 2x rate.
-const BASE_PLAYBACK_INTERVAL_MS = 300;
+// Halved from 300 so each labeled speed (0.5x/1x/2x) plays at twice its
+// previous actual rate - the tier labels are user-facing and stay put, only
+// the underlying interval changes.
+const BASE_PLAYBACK_INTERVAL_MS = 150;
 const PAUSE_AT_END_MS = 2000;
 
 export const PLAYBACK_SPEEDS = [0.5, 1, 2] as const;
