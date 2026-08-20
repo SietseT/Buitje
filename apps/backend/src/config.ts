@@ -66,9 +66,6 @@ export const config = {
     tmpDir: path.join(here, "..", ".tmp"),
     dataDir: path.join(here, "..", ".data"),
     framesDir: path.join(here, "..", ".data", "frames"),
-    // Raw PV grids behind /api/point (cache/pvStore.ts), kept out of
-    // framesDir so diskFrameStore's readdir index stays PNG-only.
-    pvDir: path.join(here, "..", ".data", "pv"),
     // Inside dataDir so docker-compose's existing .data volume persists it
     // across container restarts without a second mount.
     lightningFile: path.join(here, "..", ".data", "lightning.json"),

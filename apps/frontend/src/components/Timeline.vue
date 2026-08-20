@@ -86,7 +86,9 @@ const axisLabels = computed(() => {
         <span class="text-xl leading-6 font-semibold tracking-tight tabular-nums">
           {{ currentLabel }}
         </span>
-        <span class="text-[11px] leading-4 text-muted-foreground">{{ relativeLabel }}</span>
+        <span class="text-[11px] leading-4 text-muted-foreground">
+          {{ relativeLabel }}
+        </span>
       </div>
     </div>
 

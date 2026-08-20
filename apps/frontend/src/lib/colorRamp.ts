@@ -2,8 +2,8 @@
 // Keep these in sync if that ramp changes - there is no shared package
 // between the two apps, and colorize.test.ts pins the backend's copy.
 //
-// This module exists so the frontend has exactly ONE copy: Legend.vue and
-// RainChart.vue both import from here rather than each declaring their own.
+// This module exists so the frontend has exactly ONE copy: every consumer
+// (currently Legend.vue) imports from here rather than declaring its own.
 export interface ColorStop {
   dbz: number;
   r: number;
@@ -64,34 +64,4 @@ export function rampGradient(smooth: boolean): string {
     const end = (i < VISIBLE_STOPS.length - 1 ? positions[i + 1] : 100).toFixed(1);
     return `${rgba(s)} ${start}%, ${rgba(s)} ${end}%`;
   }).join(", ")})`;
-}
-
-/**
- * Color for a single dBZ reading, interpolated the same way the backend's
- * smooth ramp does. Used for the chart fill and the per-place status dots so
- * they agree with what the map is showing.
- */
-export function colorForDbz(dbz: number, alpha?: number): string {
-  const first = VISIBLE_STOPS[0];
-  const last = VISIBLE_STOPS[VISIBLE_STOPS.length - 1];
-  if (dbz <= first.dbz) return rgba(first, alpha ?? first.a / 255);
-  if (dbz >= last.dbz) return rgba(last, alpha ?? last.a / 255);
-
-  for (let i = 0; i < VISIBLE_STOPS.length - 1; i++) {
-    const s0 = VISIBLE_STOPS[i];
-    const s1 = VISIBLE_STOPS[i + 1];
-    if (dbz >= s0.dbz && dbz <= s1.dbz) {
-      const t = (dbz - s0.dbz) / (s1.dbz - s0.dbz);
-      const lerp = (a: number, b: number) => Math.round(a + (b - a) * t);
-      const blended: ColorStop = {
-        dbz,
-        r: lerp(s0.r, s1.r),
-        g: lerp(s0.g, s1.g),
-        b: lerp(s0.b, s1.b),
-        a: lerp(s0.a, s1.a),
-      };
-      return rgba(blended, alpha ?? blended.a / 255);
-    }
-  }
-  return rgba(last, alpha ?? last.a / 255);
 }

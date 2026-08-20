@@ -2,10 +2,8 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { config } from "../config.js";
 import type { Bounds } from "../knmi/reproject.js";
-import type { RadarCalibration, RadarGeometry } from "../knmi/parseRadar.js";
 
 const BOUNDS_FILE = path.join(config.paths.dataDir, "bounds.json");
-const GRID_INFO_FILE = path.join(config.paths.dataDir, "grid.json");
 
 export interface StoredFrame {
   timestamp: string;
@@ -75,43 +73,5 @@ export function loadGridBounds(): void {
     gridBounds = JSON.parse(readFileSync(BOUNDS_FILE, "utf-8"));
   } catch {
     // no persisted bounds yet
-  }
-}
-
-/**
- * The projection + calibration needed to read a dBZ value back out of a
- * cached PV grid at an arbitrary lon/lat (see knmi/samplePoint.ts). Held
- * separately from the frames themselves because it is the same for every
- * frame - KNMI's composite grid is fixed.
- */
-export interface GridInfo {
-  geometry: RadarGeometry;
-  calibration: RadarCalibration;
-}
-
-export let gridInfo: GridInfo | null = null;
-
-export function setGridInfo(geometry: RadarGeometry, calibration: RadarCalibration): void {
-  const next: GridInfo = { geometry, calibration };
-  const serialized = JSON.stringify(next);
-  // Backfill can process a couple of dozen files in a burst, all carrying
-  // identical geometry - skip the rewrite when nothing actually changed.
-  if (gridInfo && JSON.stringify(gridInfo) === serialized) return;
-  gridInfo = next;
-  mkdirSync(config.paths.dataDir, { recursive: true });
-  writeFileSync(GRID_INFO_FILE, serialized);
-}
-
-/**
- * Restores the grid info persisted by a previous run. Load-bearing for the
- * same reason as loadGridBounds: the poller's backfill skips frames that are
- * already cached (poller.ts), so after a restart with a full cache nothing
- * would re-parse an HDF5 file, and /api/point would 503 indefinitely.
- */
-export function loadGridInfo(): void {
-  try {
-    gridInfo = JSON.parse(readFileSync(GRID_INFO_FILE, "utf-8"));
-  } catch {
-    // no persisted grid info yet
   }
 }

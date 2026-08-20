@@ -1,32 +1,27 @@
 import { ref } from "vue";
 
 /**
- * The browser-reported position, shared between RadarMap (which owns
- * MapLibre's GeolocateControl, and so owns the permission prompt and the
- * location dot) and the place panel, which offers it as a selectable place
- * and needs to show locating/denied feedback.
- *
- * Module-level refs rather than props, matching how the other cross-cutting
- * state here works (locale, showLightning, smoothColorRamp).
+ * Module-level refs rather than props, shared between RadarMap (which owns
+ * MapLibre's GeolocateControl and drives these) and MapControls/App.vue
+ * (which read them for the spinner and the denied-permission banner).
  */
-export const userLocation = ref<{ lat: number; lng: number } | null>(null);
 
-/** True between pressing "use my location" and a fix or an error arriving. */
+/** True between pressing the locate button and a fix or an error arriving. */
 export const locating = ref(false);
 
 /**
- * Set when a fix fails for any reason, not just an outright denial - from the
- * panel's point of view a timeout and a refusal need the same fallback ("pick
- * a spot on the map instead"). GeolocateControl is given an explicit 10s
- * timeout in RadarMap, so this can't hang indefinitely.
+ * Set when a fix fails for any reason, not just an outright denial - a
+ * timeout and a refusal both mean the same thing to the user. GeolocateControl
+ * is given an explicit 10s timeout in RadarMap, so this can't hang
+ * indefinitely.
  */
 export const locationFailed = ref(false);
 
-// RadarMap registers MapLibre's trigger here so the panel's button can start
-// a fix without the panel needing a reference to the map or the control.
-let trigger: (() => void) | null = null;
+// RadarMap registers MapLibre's trigger here so MapControls' button can start
+// a fix without needing a reference to the map or the control.
+let trigger: (() => boolean) | null = null;
 
-export function registerLocateTrigger(fn: (() => void) | null): void {
+export function registerLocateTrigger(fn: (() => boolean) | null): void {
   trigger = fn;
 }
 
@@ -34,5 +29,13 @@ export function requestLocate(): void {
   if (!trigger) return;
   locationFailed.value = false;
   locating.value = true;
-  trigger();
+  // GeolocateControl.trigger() returns false when the control never set
+  // itself up - which is what happens where the Geolocation API is
+  // unavailable, notably on a non-secure origin (a phone hitting the dev
+  // server over the LAN on plain HTTP). No error event is emitted in that
+  // case, so without this the spinner would spin forever.
+  if (!trigger()) {
+    locating.value = false;
+    locationFailed.value = true;
+  }
 }

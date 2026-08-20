@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { Plus, Minus, LocateFixed, Zap, Blend, LoaderCircle } from "@lucide/vue";
+import { LocateFixed, Zap, Blend, LoaderCircle } from "@lucide/vue";
 import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
 import { showLightning } from "@/composables/useLightningToggle";
 import { locating } from "@/composables/useUserLocation";
 import { useI18n } from "@/i18n/messages";
 
 // Everything on this rail changes what the MAP shows, which is why it lives
-// on the map rather than in the panel: zoom and locate move the view,
-// lightning and smoothing are overlay/render choices. Time controls live in
-// the Timeline, place controls in the panel, and the theme sits with the app
-// name - see CLAUDE.md.
+// on the map rather than in the app shell: locate moves the view, lightning
+// and smoothing are overlay/render choices. Zoom is left to pinch/scroll -
+// see CLAUDE.md. Time controls live in the Timeline, and the theme sits with
+// the app name in the top-left pill (RadarMap.vue).
 const emit = defineEmits<{
-  zoomIn: [];
-  zoomOut: [];
   locate: [];
 }>();
 
@@ -21,30 +19,6 @@ const { t } = useI18n();
 
 <template>
   <div class="flex flex-col items-end gap-2">
-    <!-- Zoom buttons are desktop-only: on a touch screen pinch already does
-         this, and two fewer controls matters more on a small map. -->
-    <div
-      class="hidden flex-col overflow-hidden rounded-xl bg-white/90 shadow-lg backdrop-blur lg:flex dark:bg-neutral-900/90"
-    >
-      <button
-        type="button"
-        class="flex size-10 items-center justify-center hover:bg-black/5 dark:hover:bg-white/10"
-        :aria-label="t('map.zoomIn')"
-        @click="emit('zoomIn')"
-      >
-        <Plus class="size-4" />
-      </button>
-      <div class="mx-2 h-px bg-border" />
-      <button
-        type="button"
-        class="flex size-10 items-center justify-center hover:bg-black/5 dark:hover:bg-white/10"
-        :aria-label="t('map.zoomOut')"
-        @click="emit('zoomOut')"
-      >
-        <Minus class="size-4" />
-      </button>
-    </div>
-
     <button
       type="button"
       class="flex size-10 items-center justify-center rounded-xl bg-white/90 shadow-lg backdrop-blur hover:bg-white dark:bg-neutral-900/90 dark:hover:bg-neutral-900"

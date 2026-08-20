@@ -3,36 +3,18 @@ import { onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
-import type { Marker } from "@/composables/useMarkers";
 import { geolocateGranted } from "@/composables/useGeolocatePreference";
 import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
 import { showLightning } from "@/composables/useLightningToggle";
 import { theme } from "@/composables/useTheme";
-import {
-  locating,
-  locationFailed,
-  registerLocateTrigger,
-  requestLocate,
-  userLocation,
-} from "@/composables/useUserLocation";
+import { locating, locationFailed, registerLocateTrigger, requestLocate } from "@/composables/useUserLocation";
 import MapControls from "@/components/MapControls.vue";
-import { useI18n } from "@/i18n/messages";
+import ThemeToggle from "@/components/ThemeToggle.vue";
 
 const props = defineProps<{
   frame: RadarFrame | undefined;
   bounds: RadarBounds | null;
-  markers: Marker[];
-  placingMarker: boolean;
 }>();
-
-const emit = defineEmits<{
-  placeMarker: [lng: number, lat: number];
-  renameMarker: [id: string, label: string];
-  deleteMarker: [id: string];
-  cancelPlacing: [];
-}>();
-
-const { t } = useI18n();
 
 const mapContainer = ref<HTMLDivElement | null>(null);
 const map = shallowRef<maplibregl.Map | null>(null);
@@ -276,195 +258,34 @@ async function updateLightning() {
   }
 }
 
-// MapLibre's default teardrop pin looks dated next to the rest of the
-// app's flat, lucide-icon UI - build the marker element from the same
-// "map-pin" glyph used on the panel button instead, filled in a color
-// distinct from both the radar palette and the GeolocateControl's blue
-// dot. Popup content is built with plain DOM calls, matching this file's
-// existing all-imperative style (no child Vue components get mounted into
-// the map).
-const MARKER_COLOR = "#dc2626";
-
-// Path data from @lucide/vue's "map-pin" icon (24x24 viewBox), kept as a
-// literal so this stays a plain DOM element rather than mounting a Vue
-// component into the map.
-const MARKER_PIN_SVG = `
-  <svg width="30" height="30" viewBox="0 0 24 24" fill="${MARKER_COLOR}" stroke="white" stroke-width="1.25" stroke-linejoin="round" style="filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.4))">
-    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
-    <circle cx="12" cy="10" r="3" fill="white" stroke="none" />
-  </svg>
-`;
-
-function createMarkerElement(): HTMLElement {
-  const el = document.createElement("div");
-  el.className = "cursor-pointer";
-  el.innerHTML = MARKER_PIN_SVG;
-  return el;
-}
-
-interface MarkerInstance {
-  marker: maplibregl.Marker;
-  input: HTMLInputElement;
-}
-
-const markerInstances = new Map<string, MarkerInstance>();
-
-function createPopupContent(id: string, label: string): { element: HTMLElement; input: HTMLInputElement } {
-  const container = document.createElement("div");
-  container.className = "flex items-center gap-1.5";
-
-  const input = document.createElement("input");
-  input.type = "text";
-  input.value = label;
-  input.placeholder = t("markers.namePlaceholder");
-  input.className =
-    "min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 text-sm outline-none focus:border-ring";
-  input.addEventListener("change", () => {
-    const value = input.value.trim();
-    if (value) emit("renameMarker", id, value);
-  });
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") input.blur();
-  });
-
-  const deleteButton = document.createElement("button");
-  deleteButton.type = "button";
-  deleteButton.textContent = t("markers.delete");
-  deleteButton.className =
-    "shrink-0 rounded-md px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10";
-  deleteButton.addEventListener("click", () => emit("deleteMarker", id));
-
-  container.append(input, deleteButton);
-  return { element: container, input };
-}
-
-function syncMarkers() {
-  const m = map.value;
-  if (!m) return;
-
-  const seen = new Set<string>();
-  for (const data of props.markers) {
-    seen.add(data.id);
-    const existing = markerInstances.get(data.id);
-    if (existing) {
-      existing.marker.setLngLat([data.lng, data.lat]);
-      if (document.activeElement !== existing.input) existing.input.value = data.label;
-      continue;
-    }
-
-    const { element, input } = createPopupContent(data.id, data.label);
-    const popup = new maplibregl.Popup({
-      offset: 22,
-      className: "buitje-marker-popup",
-      closeButton: false,
-    }).setDOMContent(element);
-    const marker = new maplibregl.Marker({ element: createMarkerElement(), anchor: "bottom" })
-      .setLngLat([data.lng, data.lat])
-      .setPopup(popup)
-      .addTo(m);
-    markerInstances.set(data.id, { marker, input });
-  }
-
-  for (const [id, { marker }] of markerInstances) {
-    if (!seen.has(id)) {
-      marker.remove();
-      markerInstances.delete(id);
-    }
-  }
-}
-
-// Exposed so the parent can open a freshly-placed marker's popup right away
-// (letting the user rename it immediately) and fly to a marker picked from
-// the saved-markers list, without RadarMap needing to know about either flow.
-function openMarkerPopup(id: string) {
-  const entry = markerInstances.get(id);
-  if (!entry) return;
-  entry.marker.togglePopup();
-  requestAnimationFrame(() => {
-    entry.input.focus();
-    entry.input.select();
-  });
-}
-
-function flyTo(lng: number, lat: number) {
-  const m = map.value;
-  if (!m) return;
-  m.flyTo({ center: [lng, lat], zoom: Math.max(m.getZoom(), 9) });
-}
-
-defineExpose({ openMarkerPopup, flyTo });
-
-// Click-to-place: arming placement mode swaps the cursor to a crosshair and
-// arms a single map click to report the clicked coordinates back up - the
-// parent owns whether we're "placing" (and creates the actual marker), this
-// component only ever reports where the user clicked.
-let placementClickHandler: ((e: maplibregl.MapMouseEvent) => void) | null = null;
-
-function handlePlacementEscape(e: KeyboardEvent) {
-  if (e.key === "Escape") emit("cancelPlacing");
-}
-
-watch(
-  () => props.placingMarker,
-  (placing) => {
-    const m = map.value;
-    if (!m) return;
-
-    if (placementClickHandler) {
-      m.off("click", placementClickHandler);
-      placementClickHandler = null;
-    }
-    window.removeEventListener("keydown", handlePlacementEscape);
-
-    if (placing) {
-      m.getCanvas().style.cursor = "crosshair";
-      placementClickHandler = (e) => emit("placeMarker", e.lngLat.lng, e.lngLat.lat);
-      m.on("click", placementClickHandler);
-      window.addEventListener("keydown", handlePlacementEscape);
-    } else {
-      m.getCanvas().style.cursor = "";
-    }
-  },
-);
-
-watch(() => props.markers, syncMarkers, { deep: true });
-
 onMounted(() => {
   if (!mapContainer.value) return;
   map.value = new maplibregl.Map({
     container: mapContainer.value,
     style: styleUrlFor(theme.value),
     bounds: NETHERLANDS_BOUNDS,
-    // On the desktop layout the timeline sits in its own card outside the
-    // map, so padding can be near-uniform. Below lg the place sheet overlays
-    // the bottom of the map, so the initial fit has to clear it or southern
-    // Limburg starts off hidden behind it. Measured once at construction:
-    // the fit only happens here, and a later resize re-fits nothing anyway.
+    // Nothing overlays the map's bottom edge any more (no bottom sheet), so
+    // padding just needs to keep content off the very edge - a small
+    // uniform value at every breakpoint. `top` is bumped a bit to clear the
+    // app-identity pill in the template below.
     fitBoundsOptions: {
-      padding: {
-        top: 40,
-        bottom: window.innerWidth >= 1024 ? 48 : 380,
-        left: 40,
-        right: 40,
-      },
+      padding: { top: 56, bottom: 48, left: 40, right: 40 },
     },
     // Rendered by MapControls.vue instead - see the rail in the template.
     attributionControl: false,
   });
 
-  // Attribution goes top-left: it's the one corner nothing else occupies in
-  // either layout. Bottom-right would sit behind the place sheet on mobile,
-  // which would mean no visible OSM attribution at all on a phone.
+  // Attribution goes top-left, alongside the app-identity pill (see
+  // style.css for the margin that keeps them from overlapping).
   map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-left");
 
   // Geolocation is opt-in and permission can be denied - GeolocateControl
   // already handles the browser permission prompt and draws the pulsing
   // location dot itself; we only need to surface denial/failure so the app
-  // can point the user at the manual-marker fallback instead.
+  // can show a banner instead of failing silently.
   const geolocateControl = new maplibregl.GeolocateControl({
     // Without an explicit timeout the Geolocation API defaults to Infinity,
-    // so a stalled location fix would hang forever with no feedback,
-    // defeating the "reject is fine, just add a marker" fallback UX below.
+    // so a stalled location fix would hang forever with no feedback.
     positionOptions: { enableHighAccuracy: false, timeout: 10000 },
     trackUserLocation: true,
     showUserLocation: true,
@@ -475,19 +296,13 @@ onMounted(() => {
   // _updateMarker (which draws the dot + accuracy circle) is separate and
   // unaffected, so neutering this still shows the dot with zero camera
   // movement. This relies on MapLibre's internals and could break on a
-  // future maplibre-gl upgrade - re-check this if the geolocate button
-  // stops behaving after a version bump.
+  // future maplibre-gl upgrade - re-check this if the geolocate button stops
+  // behaving after a version bump.
   geolocateControl._updateCamera = () => {};
-  geolocateControl.on("geolocate", (position: GeolocationPosition) => {
+  geolocateControl.on("geolocate", () => {
     geolocateGranted.value = true;
     locating.value = false;
     locationFailed.value = false;
-    // Feeds the place panel, which offers the user's position as a
-    // selectable place alongside their saved markers.
-    userLocation.value = {
-      lat: position.coords.latitude,
-      lng: position.coords.longitude,
-    };
   });
   geolocateControl.on("error", (error: GeolocationPositionError) => {
     // Only an explicit permission denial should un-remember a prior grant -
@@ -496,9 +311,8 @@ onMounted(() => {
     if (error.code === error.PERMISSION_DENIED) {
       geolocateGranted.value = false;
     }
-    // useUserLocation is the single place that reports this now; the panel
-    // reads locationFailed and shows a persistent fallback line, replacing
-    // the 6-second toast that used to vanish before it could be read.
+    // useUserLocation is the single place that reports this now; the app
+    // shell reads locationFailed and shows a banner.
     locating.value = false;
     locationFailed.value = true;
   });
@@ -518,9 +332,6 @@ onMounted(() => {
   });
 
   map.value.on("load", () => {
-    // maplibregl.Marker instances are plain DOM and survive a style swap, so
-    // unlike the layers above this only needs doing once.
-    syncMarkers();
     // Location was previously granted - re-trigger it automatically so the
     // user's location keeps showing across refreshes instead of requiring
     // them to click the geolocate button again every visit. The browser
@@ -543,7 +354,6 @@ onUnmounted(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
   registerLocateTrigger(null);
-  window.removeEventListener("keydown", handlePlacementEscape);
   map.value?.remove();
   map.value = null;
 });
@@ -580,12 +390,18 @@ watch(
   <div class="relative h-full w-full">
     <div ref="mapContainer" class="h-full w-full" />
 
+    <div class="absolute top-3 left-3 z-10 lg:top-4 lg:left-4">
+      <div
+        class="flex items-center gap-2.5 rounded-xl bg-white/90 px-3 py-2 shadow-lg backdrop-blur dark:bg-neutral-900/90"
+      >
+        <img src="/favicon.svg" alt="" class="size-5" />
+        <span class="text-sm font-semibold tracking-tight">Buitje</span>
+        <ThemeToggle />
+      </div>
+    </div>
+
     <div class="absolute top-3 right-3 z-10 lg:top-4 lg:right-4">
-      <MapControls
-        @zoom-in="map?.zoomIn()"
-        @zoom-out="map?.zoomOut()"
-        @locate="requestLocate()"
-      />
+      <MapControls @locate="requestLocate()" />
     </div>
   </div>
 </template>

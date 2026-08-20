@@ -7,7 +7,7 @@
  * `${ts.slice(8,10)}:${ts.slice(10,12)}` - that silently renders UTC and is
  * wrong by an hour or two for every Dutch visitor.
  *
- * Shared so the timeline and the place panel can't drift apart on it.
+ * Shared so nothing else has to re-derive its own parsing and drift.
  */
 export function parseFrameTimestamp(timestamp: string): Date {
   return new Date(

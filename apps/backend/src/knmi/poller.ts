@@ -5,14 +5,9 @@ import { fetchRecentFilenames, downloadFile } from "./client.js";
 import { extractTimestampFromFilename, parseRadarFile } from "./parseRadar.js";
 import { getRemapGrid } from "./reproject.js";
 import { colorizeFrame } from "./colorize.js";
-import { setGridBounds, setGridInfo, type FrameStore } from "../cache/frameStore.js";
-import type { PvStore } from "../cache/pvStore.js";
+import { setGridBounds, type FrameStore } from "../cache/frameStore.js";
 
-async function processFile(
-  store: FrameStore,
-  pvStore: PvStore,
-  filename: string,
-): Promise<void> {
+async function processFile(store: FrameStore, filename: string): Promise<void> {
   const buffer = await downloadFile(filename);
   await mkdir(config.paths.tmpDir, { recursive: true });
   const tmpPath = path.join(config.paths.tmpDir, filename);
@@ -22,14 +17,10 @@ async function processFile(
     const frame = await parseRadarFile(tmpPath, filename);
     const remap = getRemapGrid(frame.geometry);
     setGridBounds(remap.bounds);
-    // The projection + calibration are what /api/point needs to read a dBZ
-    // value back out of the stored PV grid later.
-    setGridInfo(frame.geometry, frame.calibration);
     const pngSmooth = colorizeFrame(frame.pixels, frame.calibration, remap, undefined, true);
     const pngHard = colorizeFrame(frame.pixels, frame.calibration, remap, undefined, false);
 
     store.put({ timestamp: frame.timestamp, pngSmooth, pngHard });
-    pvStore.put(frame.timestamp, frame.pixels);
     console.log(
       `[poller] processed ${filename} (${pngSmooth.length + pngHard.length} bytes)`,
     );
@@ -72,31 +63,25 @@ async function runWithConcurrency<T>(
  * current frame almost immediately, with older history backfilling
  * alongside it rather than after it.
  */
-async function syncRecentFiles(store: FrameStore, pvStore: PvStore): Promise<void> {
+async function syncRecentFiles(store: FrameStore): Promise<void> {
   const filenames = await fetchRecentFilenames(config.cache.maxFrames);
-  // A frame counts as missing if EITHER store lacks it, so an existing cache
-  // that predates the PV store (PNGs on disk, no grids) heals itself on the
-  // next tick instead of serving an empty series from /api/point forever.
-  const missing = filenames.filter((filename) => {
-    const timestamp = extractTimestampFromFilename(filename);
-    return !store.has(timestamp) || !pvStore.has(timestamp);
-  });
+  const missing = filenames.filter((filename) => !store.has(extractTimestampFromFilename(filename)));
 
   await runWithConcurrency(missing, config.cache.backfillConcurrency, async (filename) => {
     try {
-      await processFile(store, pvStore, filename);
+      await processFile(store, filename);
     } catch (err) {
       console.error(`[poller] failed to process ${filename}:`, err);
     }
   });
 }
 
-export function startPoller(store: FrameStore, pvStore: PvStore): void {
+export function startPoller(store: FrameStore): void {
   // Chained so a slow sync can never overlap the next interval tick.
   let syncing = Promise.resolve();
   const runSync = () => {
     syncing = syncing
-      .then(() => syncRecentFiles(store, pvStore))
+      .then(() => syncRecentFiles(store))
       .catch((err) => console.error("[poller] sync failed:", err));
   };
 
