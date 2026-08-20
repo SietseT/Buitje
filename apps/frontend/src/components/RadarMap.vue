@@ -64,6 +64,23 @@ function applyLocalLabelLanguage() {
   }
 }
 
+// OpenFreeMap's "dark" style draws country borders (admin_level 2) at
+// hsl(0,0%,23%) against a background of rgb(12,12,12) - practically
+// invisible, unlike "positron" which draws them at hsl(0,0%,70%) against a
+// near-white background. Width/opacity/blur are otherwise comparable to the
+// light style at the same zoom, so only the color needs boosting. Provincial
+// borders (admin_level 4, "boundary_state") are left as the style drew them -
+// this is specifically about the country outline going missing.
+const DARK_COUNTRY_BORDER_LAYER_IDS = ["boundary_country_z0-4", "boundary_country_z5-"];
+
+function boostDarkCountryBorders() {
+  const m = map.value;
+  if (!m || theme.value !== "dark") return;
+  for (const id of DARK_COUNTRY_BORDER_LAYER_IDS) {
+    if (m.getLayer(id)) m.setPaintProperty(id, "line-color", "hsl(0, 0%, 55%)");
+  }
+}
+
 // OpenFreeMap "Positron" style: a minimal, low-contrast vector basemap that
 // stays out of the way of the radar overlay, unlike raw OSM Mapnik tiles.
 // Chosen over Liberty for its plainer look, which lets the precipitation
@@ -324,9 +341,12 @@ onMounted(() => {
   // Fires on the initial load AND after every setStyle, which is exactly
   // what the radar and lightning layers need: setStyle({diff:false}) drops
   // every custom source and layer, so they have to be re-added each time.
-  // applyLocalLabelLanguage has to re-run for the same reason.
+  // applyLocalLabelLanguage and boostDarkCountryBorders have to re-run for
+  // the same reason - each swap loads a fresh style with the original,
+  // unpatched paint properties.
   map.value.on("style.load", () => {
     applyLocalLabelLanguage();
+    boostDarkCountryBorders();
     updateOverlay();
     updateLightning();
   });
