@@ -139,6 +139,15 @@ body,
   }
 }
 
+/* MapControls.vue renders the map's own control rail, so MapLibre's
+   geolocate button is hidden - but the control itself stays mounted, because
+   it owns the permission prompt, the pulsing location dot and the accuracy
+   circle. The rail's button calls its .trigger() instead. Hiding the whole
+   ctrl-group (not just the button) avoids leaving an empty white box behind. */
+.maplibregl-ctrl-group:has(.maplibregl-ctrl-geolocate) {
+  display: none;
+}
+
 /* Marker popups: MapLibre's default chrome (square corners, hard drop
    shadow, big arrow tip) reads dated next to the rest of the app's
    shadcn-style surfaces - restyle to match PopoverContent instead. Doubled

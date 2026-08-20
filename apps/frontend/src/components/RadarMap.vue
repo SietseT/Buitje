@@ -7,6 +7,15 @@ import type { Marker } from "@/composables/useMarkers";
 import { geolocateGranted } from "@/composables/useGeolocatePreference";
 import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
 import { showLightning } from "@/composables/useLightningToggle";
+import { theme } from "@/composables/useTheme";
+import {
+  locating,
+  locationFailed,
+  registerLocateTrigger,
+  requestLocate,
+  userLocation,
+} from "@/composables/useUserLocation";
+import MapControls from "@/components/MapControls.vue";
 import { useI18n } from "@/i18n/messages";
 
 const props = defineProps<{
@@ -21,7 +30,6 @@ const emit = defineEmits<{
   renameMarker: [id: string, label: string];
   deleteMarker: [id: string];
   cancelPlacing: [];
-  geolocateError: [];
 }>();
 
 const { t } = useI18n();
@@ -82,7 +90,13 @@ function applyLocalLabelLanguage() {
 // radar frame swap. Genuinely free, no API key/account/rate limit (unlike
 // CARTO's basemap CDN, which per their own docs requires being a registered
 // "grantee" for free use).
-const style = "https://tiles.openfreemap.org/styles/positron";
+//
+// "dark" is OpenFreeMap's own Positron counterpart (47 layers, background
+// rgb(12,12,12)) - staying inside OpenFreeMap rather than reaching for
+// another provider, whose terms would need re-checking (see CLAUDE.md).
+function styleUrlFor(value: "light" | "dark"): string {
+  return `https://tiles.openfreemap.org/styles/${value === "dark" ? "dark" : "positron"}`;
+}
 
 function coordinatesFromBounds(bounds: RadarBounds): [
   [number, number],
@@ -419,20 +433,29 @@ onMounted(() => {
   if (!mapContainer.value) return;
   map.value = new maplibregl.Map({
     container: mapContainer.value,
-    style,
+    style: styleUrlFor(theme.value),
     bounds: NETHERLANDS_BOUNDS,
-    // Bottom padding is much larger than the other sides to keep the
-    // Timeline/Legend toolbar (which stacks two pills tall on mobile) from
-    // covering southern Limburg - a uniform padding would either still get
-    // covered there or zoom out further than needed on the other sides.
-    fitBoundsOptions: { padding: { top: 40, bottom: 160, left: 40, right: 40 } },
-    // Default bottom-right attribution wraps to 2 lines on narrow viewports,
-    // spanning nearly the full width and colliding with the bottom
-    // timeline/legend toolbar. Move it to top-right instead, alongside the
-    // zoom control, well clear of every other overlay.
+    // On the desktop layout the timeline sits in its own card outside the
+    // map, so padding can be near-uniform. Below lg the place sheet overlays
+    // the bottom of the map, so the initial fit has to clear it or southern
+    // Limburg starts off hidden behind it. Measured once at construction:
+    // the fit only happens here, and a later resize re-fits nothing anyway.
+    fitBoundsOptions: {
+      padding: {
+        top: 40,
+        bottom: window.innerWidth >= 1024 ? 48 : 380,
+        left: 40,
+        right: 40,
+      },
+    },
+    // Rendered by MapControls.vue instead - see the rail in the template.
     attributionControl: false,
   });
-  map.value.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+
+  // Attribution goes top-left: it's the one corner nothing else occupies in
+  // either layout. Bottom-right would sit behind the place sheet on mobile,
+  // which would mean no visible OSM attribution at all on a phone.
+  map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-left");
 
   // Geolocation is opt-in and permission can be denied - GeolocateControl
   // already handles the browser permission prompt and draws the pulsing
@@ -455,8 +478,16 @@ onMounted(() => {
   // future maplibre-gl upgrade - re-check this if the geolocate button
   // stops behaving after a version bump.
   geolocateControl._updateCamera = () => {};
-  geolocateControl.on("geolocate", () => {
+  geolocateControl.on("geolocate", (position: GeolocationPosition) => {
     geolocateGranted.value = true;
+    locating.value = false;
+    locationFailed.value = false;
+    // Feeds the place panel, which offers the user's position as a
+    // selectable place alongside their saved markers.
+    userLocation.value = {
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    };
   });
   geolocateControl.on("error", (error: GeolocationPositionError) => {
     // Only an explicit permission denial should un-remember a prior grant -
@@ -465,22 +496,37 @@ onMounted(() => {
     if (error.code === error.PERMISSION_DENIED) {
       geolocateGranted.value = false;
     }
-    emit("geolocateError");
+    // useUserLocation is the single place that reports this now; the panel
+    // reads locationFailed and shows a persistent fallback line, replacing
+    // the 6-second toast that used to vanish before it could be read.
+    locating.value = false;
+    locationFailed.value = true;
   });
   map.value.addControl(geolocateControl, "top-right");
+  // The rail's own button drives it; the control stays mounted for the
+  // permission prompt and the location dot, and style.css hides its chrome.
+  registerLocateTrigger(() => geolocateControl.trigger());
 
-  map.value.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
-  map.value.on("load", () => {
+  // Fires on the initial load AND after every setStyle, which is exactly
+  // what the radar and lightning layers need: setStyle({diff:false}) drops
+  // every custom source and layer, so they have to be re-added each time.
+  // applyLocalLabelLanguage has to re-run for the same reason.
+  map.value.on("style.load", () => {
+    applyLocalLabelLanguage();
     updateOverlay();
     updateLightning();
-    applyLocalLabelLanguage();
+  });
+
+  map.value.on("load", () => {
+    // maplibregl.Marker instances are plain DOM and survive a style swap, so
+    // unlike the layers above this only needs doing once.
     syncMarkers();
     // Location was previously granted - re-trigger it automatically so the
     // user's location keeps showing across refreshes instead of requiring
     // them to click the geolocate button again every visit. The browser
     // won't re-prompt since permission is already granted.
     if (geolocateGranted.value) {
-      geolocateControl.trigger();
+      requestLocate();
     }
   });
 
@@ -496,9 +542,18 @@ onMounted(() => {
 onUnmounted(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+  registerLocateTrigger(null);
   window.removeEventListener("keydown", handlePlacementEscape);
   map.value?.remove();
   map.value = null;
+});
+
+// diff:false is deliberate. MapLibre's default style diffing tries to carry
+// state across, and what it preserves between two unrelated styles is not
+// something to rely on; a clean reload means the style.load handler above is
+// always the single place that re-adds the radar and lightning layers.
+watch(theme, (value) => {
+  map.value?.setStyle(styleUrlFor(value), { diff: false });
 });
 
 watch([() => props.frame, () => props.bounds, smoothColorRamp, showLightning], () => {
@@ -522,5 +577,15 @@ watch(
 </script>
 
 <template>
-  <div ref="mapContainer" class="h-full w-full" />
+  <div class="relative h-full w-full">
+    <div ref="mapContainer" class="h-full w-full" />
+
+    <div class="absolute top-3 right-3 z-10 lg:top-4 lg:right-4">
+      <MapControls
+        @zoom-in="map?.zoomIn()"
+        @zoom-out="map?.zoomOut()"
+        @locate="requestLocate()"
+      />
+    </div>
+  </div>
 </template>

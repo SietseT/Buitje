@@ -3,12 +3,14 @@ import fastifyStatic from "@fastify/static";
 import fs from "node:fs";
 import { config, assertRequiredConfig } from "./config.js";
 import { createDiskFrameStore } from "./cache/diskFrameStore.js";
-import { loadGridBounds } from "./cache/frameStore.js";
+import { loadGridBounds, loadGridInfo } from "./cache/frameStore.js";
+import { createDiskPvStore } from "./cache/pvStore.js";
 import { createDiskLightningStore } from "./cache/diskLightningStore.js";
 import { startPoller } from "./knmi/poller.js";
 import { startLightningRelay } from "./lightning/relay.js";
 import { registerFrameRoutes } from "./routes/frames.js";
 import { registerLightningRoutes } from "./routes/lightning.js";
+import { registerPointRoutes } from "./routes/point.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 
 // Before anything else: no KNMI key means every poll would 401, so fail here
@@ -59,7 +61,9 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
 }
 
 loadGridBounds();
+loadGridInfo();
 const store = createDiskFrameStore(config.cache.maxFrames, config.paths.framesDir);
+const pvStore = createDiskPvStore(config.cache.maxFrames, config.paths.pvDir);
 const lightningStore = createDiskLightningStore(
   config.lightning.retentionMs,
   config.lightning.maxStrikes,
@@ -69,6 +73,7 @@ const lightningStore = createDiskLightningStore(
 
 registerFrameRoutes(app, store);
 registerLightningRoutes(app, lightningStore);
+registerPointRoutes(app, store, pvStore);
 
 if (process.env.NODE_ENV !== "production") {
   registerAdminRoutes(app);
@@ -98,7 +103,7 @@ if (fs.existsSync(config.paths.frontendDist)) {
   });
 }
 
-startPoller(store);
+startPoller(store, pvStore);
 startLightningRelay(lightningStore);
 
 app
