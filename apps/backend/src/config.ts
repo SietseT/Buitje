@@ -57,6 +57,16 @@ export const config = {
     flushIntervalMs: Number(process.env.LIGHTNING_FLUSH_INTERVAL_MS ?? 30 * 1000),
     reconnectBaseDelayMs: Number(process.env.LIGHTNING_RECONNECT_BASE_MS ?? 2000),
     reconnectMaxDelayMs: Number(process.env.LIGHTNING_RECONNECT_MAX_MS ?? 60000),
+    // Blitzortung is a global firehose - connectLightningStream's onRawMessage
+    // fires many times per second whenever the socket is actually healthy,
+    // regardless of the NL bounds filter (that happens downstream in
+    // relay.ts). A connection can go silently dead - open, no error, no close
+    // event, just zero further messages forever - which the reconnect logic
+    // in client.ts can't detect on its own since nothing fires to trigger it.
+    // This is what previously required a manual container restart to fix.
+    // The watchdog in client.ts force-closes the socket (triggering the
+    // normal reconnect path) if this much time passes with no message at all.
+    staleMs: Number(process.env.LIGHTNING_STALE_MS ?? 2 * 60 * 1000),
   },
   server: {
     port: Number(process.env.PORT ?? 3001),

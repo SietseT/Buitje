@@ -31,6 +31,7 @@ export function connectLightningStream(onRawMessage: (data: string) => void): { 
   let ws: WebSocket | undefined;
   let reconnectDelayMs = config.lightning.reconnectBaseDelayMs;
   let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastMessageAt = Date.now();
 
   function scheduleReconnect() {
     if (closed) return;
@@ -44,14 +45,20 @@ export function connectLightningStream(onRawMessage: (data: string) => void): { 
     if (closed) return;
     const url = pickUrl();
     ws = new WebSocket(url);
+    // Reset here, not just on "open" - covers the connect attempt itself
+    // hanging (no open, no error, no close), which the watchdog below
+    // otherwise couldn't distinguish from a stale established connection.
+    lastMessageAt = Date.now();
 
     ws.addEventListener("open", () => {
       reconnectDelayMs = config.lightning.reconnectBaseDelayMs;
+      lastMessageAt = Date.now();
       console.log(`[lightning] connected to ${url}`);
       ws?.send(HANDSHAKE);
     });
 
     ws.addEventListener("message", (event) => {
+      lastMessageAt = Date.now();
       try {
         onRawMessage(String(event.data));
       } catch {
@@ -78,11 +85,34 @@ export function connectLightningStream(onRawMessage: (data: string) => void): { 
     });
   }
 
+  // Blitzortung connections can go silently dead - socket stays open, no
+  // error, no close, just zero further messages forever. That leaves nothing
+  // to trigger the reconnect logic above, which is what previously required
+  // a manual container restart to recover from. This watchdog is the only
+  // thing that detects that case: if too long passes with no message at all
+  // (checked well inside the staleMs window, not just once at the deadline),
+  // force-close the socket so the normal close/reconnect path takes over.
+  const watchdog = setInterval(() => {
+    if (closed) return;
+    const idleMs = Date.now() - lastMessageAt;
+    if (idleMs > config.lightning.staleMs) {
+      console.warn(
+        `[lightning] no messages for ${Math.round(idleMs / 1000)}s, ` +
+          `forcing reconnect (stale connection)`,
+      );
+      // Let the close handler own the actual reconnect scheduling - just
+      // force the dead socket closed so that fires.
+      ws?.close();
+    }
+  }, Math.min(config.lightning.staleMs / 4, 30_000));
+  watchdog.unref();
+
   connect();
 
   return {
     close() {
       closed = true;
+      clearInterval(watchdog);
       clearTimeout(reconnectTimer);
       ws?.close();
     },
