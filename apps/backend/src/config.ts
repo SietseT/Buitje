@@ -61,6 +61,11 @@ export const config = {
   server: {
     port: Number(process.env.PORT ?? 3001),
     host: process.env.HOST ?? "0.0.0.0",
+    // Off by default - Fastify's automatic per-request access log (one line
+    // per incoming request, one per completed response) is noisy in normal
+    // dev use since this app polls its own endpoints every 30s-5min from the
+    // frontend. Flip on to debug routing/latency issues.
+    logRequests: process.env.LOG_REQUESTS === "true",
   },
   paths: {
     tmpDir: path.join(here, "..", ".tmp"),

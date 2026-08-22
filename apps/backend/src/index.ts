@@ -15,7 +15,7 @@ import { registerAdminRoutes } from "./routes/admin.js";
 // with an actionable message rather than in a retry loop later.
 assertRequiredConfig();
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, disableRequestLogging: !config.server.logRequests });
 
 // Crash loudly and let Docker's `restart: unless-stopped` bring the process
 // back up cleanly, rather than continuing in an unknown state or exiting
