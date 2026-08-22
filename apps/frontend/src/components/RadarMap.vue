@@ -164,12 +164,21 @@ function applyOverlay(frame: RadarFrame, bounds: RadarBounds) {
     url,
     coordinates,
   });
-  m.addLayer({
-    id: RADAR_LAYER_ID,
-    type: "raster",
-    source: RADAR_SOURCE_ID,
-    paint: { "raster-opacity": 0.85 },
-  });
+  m.addLayer(
+    {
+      id: RADAR_LAYER_ID,
+      type: "raster",
+      source: RADAR_SOURCE_ID,
+      paint: { "raster-opacity": 0.85 },
+    },
+    // Lightning strikes must always render above precipitation. Layer order
+    // otherwise depends on which of updateOverlay()/updateLightning() wins
+    // the race after a style reload (setStyle re-adds both from scratch) -
+    // whichever's addLayer() runs last ends up on top. Explicitly inserting
+    // the radar layer below the lightning layer (when present) makes the
+    // stacking deterministic regardless of that race.
+    m.getLayer(LIGHTNING_LAYER_ID) ? LIGHTNING_LAYER_ID : undefined,
+  );
 }
 
 function updateOverlay() {

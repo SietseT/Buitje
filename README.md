@@ -23,7 +23,7 @@ The `.env.example` already contains KNMI's public anonymous API key (rate-limite
 ### Development
 
 ```sh
-pnpm dev:backend    # http://localhost:3000
+pnpm dev:backend    # http://localhost:3001
 pnpm dev:frontend   # http://localhost:5173 (proxies /api to the backend)
 ```
 
@@ -34,4 +34,4 @@ cp .env.example .env   # add your own KNMI_API_KEY for real deployments
 docker compose up --build
 ```
 
-Serves the whole app (frontend + API) from a single container on port 3000.
+Serves the whole app (frontend + API) from a single container on port 3001.

@@ -2,7 +2,7 @@ services:
   buitje:
     build: .
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       KNMI_API_KEY: ${KNMI_API_KEY}
       POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-60000}

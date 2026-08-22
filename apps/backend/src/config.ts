@@ -59,7 +59,7 @@ export const config = {
     reconnectMaxDelayMs: Number(process.env.LIGHTNING_RECONNECT_MAX_MS ?? 60000),
   },
   server: {
-    port: Number(process.env.PORT ?? 3000),
+    port: Number(process.env.PORT ?? 3001),
     host: process.env.HOST ?? "0.0.0.0",
   },
   paths: {

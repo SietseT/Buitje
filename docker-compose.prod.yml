@@ -2,7 +2,7 @@ services:
   buitje:
     image: ghcr.io/sietset/buitje:latest
     ports:
-      - "3000:3000"
+      - "3001:3001"
     environment:
       KNMI_API_KEY: YOUR_API_KEY
       POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-60000}
