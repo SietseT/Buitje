@@ -77,6 +77,12 @@ export const config = {
     // frontend. Flip on to debug routing/latency issues.
     logRequests: process.env.LOG_REQUESTS === "true",
   },
+  meta: {
+    // Unset by default so a self-hoster's instance doesn't silently link to
+    // this project's own repo - set to your fork's URL to show the icon, or
+    // leave unset to hide it entirely.
+    githubUrl: process.env.GITHUB_URL || null,
+  },
   paths: {
     tmpDir: path.join(here, "..", ".tmp"),
     dataDir: path.join(here, "..", ".data"),

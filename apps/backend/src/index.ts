@@ -9,6 +9,7 @@ import { startPoller } from "./knmi/poller.js";
 import { startLightningRelay } from "./lightning/relay.js";
 import { registerFrameRoutes } from "./routes/frames.js";
 import { registerLightningRoutes } from "./routes/lightning.js";
+import { registerMetaRoutes } from "./routes/meta.js";
 import { registerAdminRoutes } from "./routes/admin.js";
 
 // Before anything else: no KNMI key means every poll would 401, so fail here
@@ -74,6 +75,7 @@ const lightningStore = createDiskLightningStore(
 
 registerFrameRoutes(app, store);
 registerLightningRoutes(app, lightningStore);
+registerMetaRoutes(app);
 
 if (process.env.NODE_ENV !== "production") {
   registerAdminRoutes(app);

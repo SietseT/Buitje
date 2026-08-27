@@ -79,6 +79,7 @@ All variables are optional except `KNMI_API_KEY`. Set them in `apps/backend/.env
 | `MAX_FRAMES`                  | `24`                         | How many frames are retained (~2 hours of history at 5 min/frame). Also sizes lightning retention by default.                                  |
 | `BACKFILL_CONCURRENCY`        | `8`                          | How many missing frames are downloaded in parallel on startup/poll (fills in timeline history).                                                |
 | `LOG_REQUESTS`                | `false`                      | Enables Fastify's per-request access log. Off by default since the frontend polls its own endpoints frequently.                                |
+| `GITHUB_URL`                  | — (unset, icon hidden)       | Shows a GitHub icon in the app that links to this URL. Unset by default so a self-hosted instance doesn't silently link to someone else's repo. |
 | `LIGHTNING_BOUNDS_PADDING`    | `1.5`                        | Degrees of padding around the Netherlands bounding box used to filter the global lightning feed before the radar grid's real bounds are known. |
 | `LIGHTNING_RETENTION_MS`      | `MAX_FRAMES * 5 * 60 * 1000` | How long lightning strikes are kept. Derived from `MAX_FRAMES` by default so it always covers the full radar timeline.                         |
 | `LIGHTNING_MAX_STRIKES`       | `20000`                      | Cap on strikes kept in the lightning store.                                                                                                    |
