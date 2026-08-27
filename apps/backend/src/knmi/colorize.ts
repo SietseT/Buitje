@@ -73,6 +73,24 @@ export function dbzToRGBA(
   return [stops[0].r, stops[0].g, stops[0].b, stops[0].a];
 }
 
+// pv (the raw pixel value) is always a single byte, and dbz is a linear
+// function of pv alone for a given frame's calibration - so instead of
+// re-running dbzToRGBA's stop scan for every one of a frame's ~535,000
+// pixels, run it once per possible pv value and index into the result.
+function buildColorLut(calibration: RadarCalibration, stops: ColorStop[], smooth: boolean): Uint8Array {
+  const lut = new Uint8Array(256 * 4);
+  for (let pv = 0; pv < 256; pv++) {
+    const dbz = calibration.a * pv + calibration.b;
+    const [r, g, b, a] = dbzToRGBA(dbz, stops, smooth);
+    const offset = pv * 4;
+    lut[offset] = r;
+    lut[offset + 1] = g;
+    lut[offset + 2] = b;
+    lut[offset + 3] = a;
+  }
+  return lut;
+}
+
 export function colorizeFrame(
   pixels: Uint8Array,
   calibration: RadarCalibration,
@@ -82,6 +100,7 @@ export function colorizeFrame(
 ): Buffer {
   const { width, height, sourceIndex } = remap;
   const png = new PNG({ width, height });
+  const lut = buildColorLut(calibration, stops, smooth);
 
   for (let i = 0; i < sourceIndex.length; i++) {
     const srcIdx = sourceIndex[i];
@@ -98,12 +117,11 @@ export function colorizeFrame(
       continue;
     }
 
-    const dbz = calibration.a * pv + calibration.b;
-    const [r, g, b, a] = dbzToRGBA(dbz, stops, smooth);
-    png.data[outOffset] = r;
-    png.data[outOffset + 1] = g;
-    png.data[outOffset + 2] = b;
-    png.data[outOffset + 3] = a;
+    const lutOffset = pv * 4;
+    png.data[outOffset] = lut[lutOffset];
+    png.data[outOffset + 1] = lut[lutOffset + 1];
+    png.data[outOffset + 2] = lut[lutOffset + 2];
+    png.data[outOffset + 3] = lut[lutOffset + 3];
   }
 
   return PNG.sync.write(png);

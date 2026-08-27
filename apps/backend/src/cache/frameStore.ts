@@ -12,11 +12,13 @@ export interface StoredFrame {
 }
 
 export interface FrameStore {
-  put(frame: StoredFrame): void;
-  get(timestamp: string): StoredFrame | undefined;
+  put(frame: StoredFrame): Promise<void>;
+  // Variant-scoped so callers (the PNG route) don't pay for reading the
+  // color-ramp variant they didn't ask for - see diskFrameStore.ts.
+  get(timestamp: string, variant: "smooth" | "hard"): Promise<Buffer | undefined>;
   has(timestamp: string): boolean;
   list(): { timestamp: string }[];
-  latest(): StoredFrame | undefined;
+  latest(): Promise<StoredFrame | undefined>;
 }
 
 /**
@@ -28,15 +30,17 @@ export function createInMemoryFrameStore(maxFrames: number): FrameStore {
   const frames = new Map<string, StoredFrame>();
 
   return {
-    put(frame) {
+    async put(frame) {
       frames.set(frame.timestamp, frame);
       if (frames.size > maxFrames) {
         const oldestKey = frames.keys().next().value;
         if (oldestKey !== undefined) frames.delete(oldestKey);
       }
     },
-    get(timestamp) {
-      return frames.get(timestamp);
+    async get(timestamp, variant) {
+      const frame = frames.get(timestamp);
+      if (!frame) return undefined;
+      return variant === "hard" ? frame.pngHard : frame.pngSmooth;
     },
     has(timestamp) {
       return frames.has(timestamp);
@@ -46,7 +50,7 @@ export function createInMemoryFrameStore(maxFrames: number): FrameStore {
         .sort()
         .map((timestamp) => ({ timestamp }));
     },
-    latest() {
+    async latest() {
       const keys = Array.from(frames.keys()).sort();
       const lastKey = keys[keys.length - 1];
       return lastKey ? frames.get(lastKey) : undefined;

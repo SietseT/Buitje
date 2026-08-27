@@ -71,6 +71,18 @@ function parseCalibrationFormula(formula: string): { a: number; b: number } {
   return { a: Number(match[1]), b: Number(match[2]) };
 }
 
+// The real NL25 composite grid is ~700x765. This is a generous ceiling, not
+// a tight bound - just defense-in-depth against a malformed or unexpected
+// HDF5 file (KNMI is a trusted source, but this is cheap insurance against
+// an oversized width*height allocation later in reprojection/colorization).
+const MAX_GRID_DIMENSION = 8192;
+
+function assertValidGridDimension(value: number, label: "width" | "height"): void {
+  if (!Number.isInteger(value) || value <= 0 || value > MAX_GRID_DIMENSION) {
+    throw new Error(`Unexpected radar grid ${label}: ${value}`);
+  }
+}
+
 export function extractTimestampFromFilename(filename: string): string {
   const match = filename.match(/(\d{12})/);
   if (!match) throw new Error(`Cannot extract timestamp from filename: ${filename}`);
@@ -98,6 +110,8 @@ export async function parseRadarFile(
 
     const height = imageDataset.shape[0];
     const width = imageDataset.shape[1];
+    assertValidGridDimension(height, "height");
+    assertValidGridDimension(width, "width");
     const pixels = new Uint8Array(imageDataset.value);
 
     const { a, b } = parseCalibrationFormula(str(calibAttrs, "calibration_formulas"));

@@ -380,6 +380,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  clearTimeout(scrubDebounceTimer);
   resizeObserver?.disconnect();
   resizeObserver = null;
   registerLocateTrigger(null);
@@ -395,11 +396,21 @@ watch(theme, (value) => {
   map.value?.setStyle(styleUrlFor(value), { diff: false });
 });
 
+// Scrubbing the timeline can fire many rapid frame changes; overlayRequestId/
+// lightningRequestId already discard stale *results*, but don't stop the
+// requests themselves from firing - a fast drag would otherwise cost one
+// radar PNG fetch and one lightning fetch per frame crossed. A short debounce
+// collapses that into a single pair of requests once the user pauses.
+let scrubDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+const SCRUB_DEBOUNCE_MS = 80;
+
 watch([() => props.frame, () => props.bounds, smoothColorRamp, showLightning], () => {
-  if (map.value?.loaded()) {
+  if (!map.value?.loaded()) return;
+  clearTimeout(scrubDebounceTimer);
+  scrubDebounceTimer = setTimeout(() => {
     updateOverlay();
     updateLightning();
-  }
+  }, SCRUB_DEBOUNCE_MS);
 });
 
 // props.bounds is still null when the map is constructed in onMounted (the

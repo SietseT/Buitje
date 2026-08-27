@@ -1,4 +1,4 @@
-import Fastify from "fastify";
+import Fastify, { LogController } from "fastify";
 import fastifyStatic from "@fastify/static";
 import fs from "node:fs";
 import { config, assertRequiredConfig } from "./config.js";
@@ -15,7 +15,12 @@ import { registerAdminRoutes } from "./routes/admin.js";
 // with an actionable message rather than in a retry loop later.
 assertRequiredConfig();
 
-const app = Fastify({ logger: true, disableRequestLogging: !config.server.logRequests });
+const app = Fastify({
+  logger: true,
+  // Top-level disableRequestLogging is deprecated as of fastify@5.12
+  // (FSTDEP023, removed in fastify@6) in favor of a LogController instance.
+  logController: new LogController({ disableRequestLogging: !config.server.logRequests }),
+});
 
 // Crash loudly and let Docker's `restart: unless-stopped` bring the process
 // back up cleanly, rather than continuing in an unknown state or exiting

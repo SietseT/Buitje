@@ -20,7 +20,7 @@ async function processFile(store: FrameStore, filename: string): Promise<void> {
     const pngSmooth = colorizeFrame(frame.pixels, frame.calibration, remap, undefined, true);
     const pngHard = colorizeFrame(frame.pixels, frame.calibration, remap, undefined, false);
 
-    store.put({ timestamp: frame.timestamp, pngSmooth, pngHard });
+    await store.put({ timestamp: frame.timestamp, pngSmooth, pngHard });
     console.log(
       `[poller] processed ${filename} (${pngSmooth.length + pngHard.length} bytes)`,
     );

@@ -12,6 +12,12 @@ import { config } from "../config.js";
  */
 const HANDSHAKE = '{"a":111}';
 
+// Real Blitzortung messages (LZW-compressed strike JSON) are well under 1
+// KiB. This guards against a compromised/misbehaving relay host sending an
+// oversized payload - without it, an arbitrarily large message would be
+// handed straight to the LZW decoder and JSON.parse.
+const MAX_MESSAGE_LENGTH = 65_536; // 64 KiB
+
 function pickUrl(): string {
   const urls = config.lightning.wsUrls;
   return urls[Math.floor(Math.random() * urls.length)];
@@ -69,8 +75,13 @@ export function connectLightningStream(onRawMessage: (data: string) => void): { 
     socket.addEventListener("message", (event) => {
       if (myGeneration !== generation) return;
       lastMessageAt = Date.now();
+      const data = String(event.data);
+      if (data.length > MAX_MESSAGE_LENGTH) {
+        console.warn(`[lightning] dropping oversized message (${data.length} bytes) from ${url}`);
+        return;
+      }
       try {
-        onRawMessage(String(event.data));
+        onRawMessage(data);
       } catch {
         // Never let a bad message or handler bug escape as an unhandled
         // exception - just drop it and keep the stream alive.
