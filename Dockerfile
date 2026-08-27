@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 RUN npm install -g pnpm@11.13.1
 WORKDIR /app
 
@@ -16,7 +16,7 @@ RUN pnpm --filter backend build
 RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
     pnpm --filter backend --prod deploy --legacy --store-dir=/pnpm-store /prod/backend
 
-FROM node:22-alpine AS runtime
+FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app/apps/backend
 

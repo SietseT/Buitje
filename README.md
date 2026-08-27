@@ -31,7 +31,7 @@ For your own deployment, register a free personal key at **https://developer.dat
 
 ## Development
 
-Requires Node 20+ and [pnpm](https://pnpm.io).
+Requires Node 22+ and [pnpm](https://pnpm.io). The Docker image runs on Node 24 (Active LTS); 22 (Maintenance LTS) is the supported floor for local dev.
 
 ```sh
 pnpm install
