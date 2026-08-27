@@ -3,10 +3,8 @@ services:
     build: .
     ports:
       - "3001:3001"
-    environment:
-      KNMI_API_KEY: ${KNMI_API_KEY}
-      POLL_INTERVAL_MS: ${POLL_INTERVAL_MS:-60000}
-      MAX_FRAMES: ${MAX_FRAMES:-24}
+    env_file:
+      - .env
     volumes:
       - buitje-frames:/app/apps/backend/.data
     restart: unless-stopped
