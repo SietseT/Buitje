@@ -20,6 +20,11 @@ const RECONNECT_INTERVAL_MS = 5_000;
 const BASE_PLAYBACK_INTERVAL_MS = 150;
 const PAUSE_AT_END_MS = 2000;
 
+// Exported so RadarMap.vue's scrub debounce can derive a safe window from
+// the fastest actual playback interval instead of hardcoding a value that
+// can silently fall out of sync with this one (see SCRUB_DEBOUNCE_MS there).
+export { BASE_PLAYBACK_INTERVAL_MS };
+
 export const PLAYBACK_SPEEDS = [0.5, 1, 2] as const;
 export type PlaybackSpeed = (typeof PLAYBACK_SPEEDS)[number];
 

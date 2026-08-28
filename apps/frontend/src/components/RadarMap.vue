@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref, shallowRef, watch } from "vue";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { PLAYBACK_SPEEDS, BASE_PLAYBACK_INTERVAL_MS } from "@/composables/useRadarFrames";
 import type { RadarBounds, RadarFrame } from "@/composables/useRadarFrames";
 import { geolocateGranted } from "@/composables/useGeolocatePreference";
 import { smoothColorRamp } from "@/composables/useSmoothColorRamp";
@@ -406,7 +407,16 @@ watch(theme, (value) => {
 // radar PNG fetch and one lightning fetch per frame crossed. A short debounce
 // collapses that into a single pair of requests once the user pauses.
 let scrubDebounceTimer: ReturnType<typeof setTimeout> | undefined;
-const SCRUB_DEBOUNCE_MS = 80;
+// Must stay below the shortest actual playback interval (fastest
+// PLAYBACK_SPEEDS entry) - otherwise autoplay's own frame changes arrive
+// faster than the debounce window, each one clearing the pending timer
+// before it ever fires, and the radar image + lightning layer silently
+// freeze while the timeline scrubber keeps advancing underneath (hit in
+// practice when BASE_PLAYBACK_INTERVAL_MS was halved to 150ms - 2x playback
+// then advanced every 75ms, under the old fixed 80ms debounce). Derived
+// rather than hardcoded so the two constants can't drift out of sync again.
+const FASTEST_PLAYBACK_INTERVAL_MS = BASE_PLAYBACK_INTERVAL_MS / Math.max(...PLAYBACK_SPEEDS);
+const SCRUB_DEBOUNCE_MS = Math.min(80, FASTEST_PLAYBACK_INTERVAL_MS / 2);
 
 watch([() => props.frame, () => props.bounds, smoothColorRamp, showLightning], () => {
   if (!map.value?.loaded()) return;
