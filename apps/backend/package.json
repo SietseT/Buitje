@@ -8,11 +8,11 @@
     "dist"
   ],
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "test": "tsx --test src/knmi/reproject.test.ts src/knmi/colorize.test.ts src/lightning/lzw.test.ts src/lightning/parseStrike.test.ts src/lightning/relay.test.ts src/cache/lightningStore.test.ts src/cache/diskLightningStore.test.ts",
-    "fetch-tuner-frame": "tsx scripts/fetch-tuner-frame.ts"
+    "test": "bun test src/knmi/reproject.test.ts src/knmi/colorize.test.ts src/lightning/lzw.test.ts src/lightning/parseStrike.test.ts src/lightning/relay.test.ts src/cache/lightningStore.test.ts src/cache/diskLightningStore.test.ts",
+    "fetch-tuner-frame": "bun scripts/fetch-tuner-frame.ts"
   },
   "dependencies": {
     "@fastify/static": "^10.1.3",
@@ -25,7 +25,6 @@
   "devDependencies": {
     "@types/node": "^22.20.1",
     "@types/pngjs": "^6.0.5",
-    "tsx": "^4.23.12",
     "typescript": "^7.0.2"
   }
 }

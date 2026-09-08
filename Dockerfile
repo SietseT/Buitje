@@ -1,20 +1,28 @@
 # syntax=docker/dockerfile:1.4
+FROM oven/bun:1.4.2-alpine AS bun
 FROM node:24-alpine AS build
-RUN npm install -g pnpm@11.13.1
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json bun.lock ./
 COPY apps/backend/package.json apps/backend/package.json
 COPY apps/frontend/package.json apps/frontend/package.json
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
-    pnpm install --frozen-lockfile --store-dir=/pnpm-store
+RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
+    bun install --frozen-lockfile
 
 COPY . .
-RUN pnpm --filter frontend build
-RUN pnpm --filter backend build
+RUN bun --filter frontend build
+RUN bun --filter backend build
 
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm-store \
-    pnpm --filter backend --prod deploy --legacy --store-dir=/pnpm-store /prod/backend
+# Bun has no equivalent of pnpm's `--prod deploy`, so a self-contained
+# prod-only install is done in a workspace-free copy instead: this
+# re-resolves backend's direct deps (not pinned to the root bun.lock),
+# which only matters for patch/minor drift within their caret ranges.
+RUN mkdir -p /prod/backend/dist \
+ && cp apps/backend/package.json /prod/backend/package.json \
+ && cp -r apps/backend/dist/. /prod/backend/dist/
+RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
+    cd /prod/backend && bun install --production
 
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production

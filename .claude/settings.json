@@ -38,7 +38,23 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(curl -s -D/tmp/h \"http://localhost:3000/api/point?lat=52.09&lon=5.12\")",
       "Bash(python3 -m json.tool)",
-      "Bash(curl -s \"http://localhost:3000/api/point?lat=52.09&lon=5.12\")"
+      "Bash(curl -s \"http://localhost:3000/api/point?lat=52.09&lon=5.12\")",
+      "Bash(bun --version)",
+      "Bash(curl -fsSL https://bun.sh/install)",
+      "Bash(bash)",
+      "Bash(git status *)",
+      "Bash(grep -v \"^\\\\.bin$\\\\|^\\\\.bun$\")",
+      "Bash(node -e \"console.log\\(require.resolve\\('fastify', {paths:['apps/backend']}\\)\\)\")",
+      "Bash(curl -s http://localhost:3099/api/frames/bounds)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3099/)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code} %{content_type}\\\\n\" \"http://localhost:3099/api/frames\")",
+      "Bash(git check-ignore *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(grep -n \"^$\" /Users/sietsetrommelen/Documents/Sources/Buitje/CLAUDE.md)",
+      "Bash(awk -F: '{print $1}')",
+      "Bash(awk 'NR>1{if\\($1==prev+1\\) print prev\",\"$1} {prev=$1}')",
+      "Bash(pkill -f \"bun --watch\")",
+      "Bash(pkill -f \"bun --filter\")"
     ]
   }
 }

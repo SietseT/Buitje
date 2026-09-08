@@ -21,7 +21,7 @@ KNMI publishes a nationwide precipitation radar composite (`radar_reflectivity_c
 - `apps/backend` — Fastify + TypeScript (ESM). Polls KNMI, runs the HDF5/reprojection/colorize pipeline, serves `/api/frames` and a lightning-strike overlay (via an unofficial Blitzortung feed).
 - `apps/frontend` — Vue 3 + Vite + shadcn-vue + MapLibre GL. Just the radar: a map, a locate/lightning/smoothing rail, and a scrub/play timeline over the last ~2 hours.
 
-It's a pnpm workspace monorepo; in production a single Docker image serves both (the backend serves the built frontend as static files).
+It's a Bun workspace monorepo; in production a single Docker image serves both (the backend serves the built frontend as static files).
 
 ## Getting a KNMI API key
 
@@ -31,25 +31,25 @@ For your own deployment, register a free personal key at **https://developer.dat
 
 ## Development
 
-Requires Node 22+ and [pnpm](https://pnpm.io). The Docker image runs on Node 24 (Active LTS); 22 (Maintenance LTS) is the supported floor for local dev.
+Requires [Bun](https://bun.sh) 1.4+. The Docker image's production runtime is still plain Node 24 (Active LTS) — Bun is only used for package management, the dev server, and running tests locally and in CI.
 
 ```sh
-pnpm install
+bun install
 cp apps/backend/.env.example apps/backend/.env
-pnpm dev:backend    # http://localhost:3001
-pnpm dev:frontend   # http://localhost:5173 (proxies /api to the backend)
+bun dev:backend    # http://localhost:3001
+bun dev:frontend   # http://localhost:5173 (proxies /api to the backend)
 ```
 
-Or run both at once with `pnpm dev`.
+Or run both at once with `bun dev`.
 
 ## Testing
 
 ```sh
 cd apps/backend
-pnpm test
+bun test
 ```
 
-Uses Node's built-in test runner (no extra framework). Covers the riskiest math in the codebase: the KNMI reprojection sign convention, color ramp interpolation, and the Blitzortung lightning feed's LZW decoding/strike parsing/stores. Runs in CI on every push and gates the Docker image build.
+Uses Bun's built-in test runner, which runs the existing `node:test`-style suite unmodified (no extra framework). Covers the riskiest math in the codebase: the KNMI reprojection sign convention, color ramp interpolation, and the Blitzortung lightning feed's LZW decoding/strike parsing/stores. Runs in CI on every push and gates the Docker image build.
 
 ## Self-hosting with Docker Compose
 
@@ -94,7 +94,7 @@ All variables are optional except `KNMI_API_KEY`. Set them in `apps/backend/.env
 
 Issues and pull requests are welcome. A few things to know before diving in:
 
-- Run `pnpm test` (from `apps/backend`) before opening a PR — CI runs the same suite and gates the Docker image build on it.
+- Run `bun test` (from `apps/backend`) before opening a PR — CI runs the same suite and gates the Docker image build on it.
 - Read [`CLAUDE.md`](./CLAUDE.md) first. It documents the non-obvious parts of this codebase in detail — KNMI's reprojection sign convention, Mercator row-spacing, the Blitzortung feed's undocumented quirks, and more — the kind of things that are easy to silently break if you don't know they're there.
 - Keep the philosophy in mind: this app is deliberately minimal (precipitation and lightning, nothing else). New features should fit that, not expand it.
 
