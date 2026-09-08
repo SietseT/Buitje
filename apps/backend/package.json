@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "bun --watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
+    "start": "bun dist/index.js",
     "test": "bun test src/knmi/reproject.test.ts src/knmi/colorize.test.ts src/lightning/lzw.test.ts src/lightning/parseStrike.test.ts src/lightning/relay.test.ts src/cache/lightningStore.test.ts src/cache/diskLightningStore.test.ts",
     "fetch-tuner-frame": "bun scripts/fetch-tuner-frame.ts"
   },

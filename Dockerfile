@@ -24,17 +24,17 @@ RUN mkdir -p /prod/backend/dist \
 RUN --mount=type=cache,id=bun-install-cache,target=/root/.bun/install/cache \
     cd /prod/backend && bun install --production
 
-FROM node:24-alpine AS runtime
+FROM oven/bun:1.4.2-alpine AS runtime
 ENV NODE_ENV=production
 WORKDIR /app/apps/backend
 
 COPY --from=build /prod/backend ./
 COPY --from=build /app/apps/frontend/dist /app/apps/frontend/dist
 
-RUN mkdir -p .data && chown -R node:node /app
-USER node
+RUN mkdir -p .data && chown -R bun:bun /app
+USER bun
 
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://localhost:3001/api/frames').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "dist/index.js"]
+  CMD bun -e "fetch('http://localhost:3001/api/frames').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["bun", "dist/index.js"]

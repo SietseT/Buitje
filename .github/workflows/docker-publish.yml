@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*.*.*"
+    branches-ignore:
+      - main
   workflow_dispatch:
 
 env:
@@ -57,7 +59,8 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ github.event_name != 'push' || startsWith(github.ref, 'refs/tags/') }}
+            type=ref,event=branch,prefix=branch-
 
       - name: Build and push
         uses: docker/build-push-action@v7
@@ -71,6 +74,7 @@ jobs:
 
   release:
     needs: build-and-push
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write

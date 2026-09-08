@@ -31,7 +31,7 @@ For your own deployment, register a free personal key at **https://developer.dat
 
 ## Development
 
-Requires [Bun](https://bun.sh) 1.4+. The Docker image's production runtime is still plain Node 24 (Active LTS) — Bun is only used for package management, the dev server, and running tests locally and in CI.
+Requires [Bun](https://bun.sh) 1.4+. The Docker image also runs on Bun in production (package management, dev server, tests, and the production runtime all use it now — see `Dockerfile`).
 
 ```sh
 bun install
