@@ -2,17 +2,15 @@
   "name": "buitje",
   "private": true,
   "license": "MIT",
-  "packageManager": "pnpm@11.13.1",
-  "engines": {
-    "node": ">=22"
-  },
+  "packageManager": "bun@1.4.2",
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c blue,green \"pnpm:dev:backend\" \"pnpm:dev:frontend\"",
-    "dev:backend": "pnpm --filter backend dev",
-    "dev:frontend": "pnpm --filter frontend dev --host",
-    "build": "pnpm --filter frontend build && pnpm --filter backend build"
+    "dev": "concurrently -n backend,frontend -c blue,green \"bun --filter backend dev\" \"bun --filter frontend dev --host\"",
+    "dev:backend": "bun --filter backend dev",
+    "dev:frontend": "bun --filter frontend dev --host",
+    "build": "bun --filter frontend build && bun --filter backend build"
   },
   "devDependencies": {
     "concurrently": "^10.0.5"
-  }
+  },
+  "workspaces": ["apps/*"]
 }
